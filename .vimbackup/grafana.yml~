@@ -1,0 +1,6 @@
+- hosts: tag_name_grafana
+  sudo: yes
+  remote_user: ubuntu
+  roles:
+    - rounds-common-roles
+    - { role: secure_app, secure_app_port: 3000 }

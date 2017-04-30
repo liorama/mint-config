@@ -1,0 +1,61 @@
+# Recent settings file for Wireshark 1.10.6.
+#
+# This file is regenerated each time Wireshark is quit.
+# So be careful, if you want to make manual changes here.
+
+######## Recent capture files (latest last), cannot be altered through command line ########
+
+recent.capture_file: /home/lior/lior2.pcap
+recent.capture_file: /home/lior/code/uae.pcap
+recent.capture_file: /home/lior/code/server/delay.pcap
+recent.capture_file: /home/lior/code/wasabi2.pcap
+recent.capture_file: /home/lior/code/wasabi.pcap
+
+######## Recent capture filters (latest last), cannot be altered through command line ########
+
+
+######## Recent display filters (latest last), cannot be altered through command line ########
+
+recent.display_filter: ip.dst == 159.122.90.102
+recent.display_filter: ip.addr == 159.122.90.102
+recent.display_filter: ip.addr == 2.54.162.156
+recent.display_filter: ip.addr == 2.54.162.166
+recent.display_filter: ip.addr==31.168.235.22
+recent.display_filter: ip.addr==54.225.156.162
+recent.display_filter: ip.addr == 54.225.156.162
+recent.display_filter: ip.addr == 23.23.132.221
+recent.display_filter: ssl
+
+# Main window geometry.
+# Decimal numbers.
+gui.geometry_main_x: 0
+gui.geometry_main_y: 0
+gui.geometry_main_width: 1918
+gui.geometry_main_height: 1028
+
+# Main window maximized.
+# TRUE or FALSE (case-insensitive).
+gui.geometry_main_maximized: FALSE
+
+# Statusbar left pane size.
+# Decimal number.
+gui.geometry_status_pane: 250
+
+# Statusbar middle pane size.
+# Decimal number.
+gui.geometry_status_pane_right: 1218
+
+# Last used Configuration Profile.
+gui.last_used_profile: Default
+
+# WLAN statistics upper pane size.
+# Decimal number.
+gui.geometry_status_wlan_stats_pane: 200
+
+# Warn if running with elevated permissions (e.g. as root).
+# TRUE or FALSE (case-insensitive).
+privs.warn_if_elevated: TRUE
+
+# Warn if npf.sys isn't loaded on Windows >= 6.0.
+# TRUE or FALSE (case-insensitive).
+privs.warn_if_no_npf: TRUE

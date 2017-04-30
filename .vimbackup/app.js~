@@ -1,0 +1,611 @@
+'use strict';
+var youtube = (function ($, _) {
+
+
+    // ------------------
+    //  global module scope
+    // ------------------
+    var scope = {
+        wasabi: null,
+        youtubeApiKey: 'AIzaSyD8KkKv1gZ7DZk-1Vk2OBs2y1Pqc5tGICI', // TODO: change when in production
+        youtubeServiceUrl: 'https://www.googleapis.com/youtube/v3/videos?',
+        youtubeSearchServiceUrl: 'https://www.googleapis.com/youtube/v3/search?',
+        player: null,
+        playerReadyCount: 0,
+        clientsCount: 2,
+        playerState: null,
+        partnerPlayerState: null,
+        pausedAfterBuffering: false,
+        timelineChangeInterval: null,
+        loadingSpinner: null,
+        appState: 'list',
+        loadingCount: 0,
+        apiReady: 0,
+
+        connectionPing: null,
+        connectionConfirmed: false
+    };
+
+    // ------------------
+    // references to dom elements
+    // ------------------
+    var dom = {
+        videosList: $('#videos_list'),
+        content: $('#content'),
+        player: $('#player'),
+        backBUtton: $('#back_btn'),
+        seachBar: $('.search-bar'),
+        tabs: $('.tabs'),
+        playerMessageOverlay: $('.player-message-overlay'),
+        errorOverlay: $('.error-overlay')
+    };
+
+
+    function initWasabi() {
+        // ------------------
+        // Initialize wasabi instance
+        // ------------------
+        scope.wasabi = rounds.wasabi.create(1);
+        scope.wasabi.start();
+
+        // ------------------
+        // Bind to events
+        // ------------------
+        scope.wasabi.addEventListener(rounds.wasabi.PARTICIPANT_CONNECTED, onParticipantConnected);
+        scope.wasabi.addEventListener(rounds.wasabi.MESSAGE_RECEIVED, onMessageReceived);
+
+        scope.connectionPing = setInterval(function(){
+            sendMessage("check-connection");
+        }, 1000);
+    }
+
+    // ------------------
+    // Initialization function: called once in the end of the module
+    // ------------------
+    function init(){
+
+        // ------------------
+        // hide player container
+        // ------------------
+        dom.player.hide();
+
+        // ------------------
+        // Initialize loading spinner
+        // ------------------
+        var spinnerOptions = {
+            lines: 13, // The number of lines to draw
+            length: 10, // The length of each line
+            width: 4, // The line thickness
+            radius: 10, // The radius of the inner circle
+            corners: 1, // Corner roundness (0..1)
+            rotate: 0, // The rotation offset
+            direction: 1, // 1: clockwise, -1: counterclockwise
+            color: '#ccc', // #rgb or #rrggbb or array of colors
+            speed: 1, // Rounds per second
+            trail: 60, // Afterglow percentage
+            shadow: false, // Whether to render a shadow
+            hwaccel: false, // Whether to use hardware acceleration
+            className: 'spinner', // The CSS class to assign to the spinner
+            zIndex: 2e9, // The z-index (defaults to 2000000000)
+            top: '50%', // Top position relative to parent
+            left: '50%' // Left position relative to parent
+        };
+
+        scope.loadingSpinner = new Spinner(spinnerOptions)
+
+
+        $(document).on('loading-data', function(e, data){
+            scope.loadingSpinner.spin($('.loading-overlay')[0]);
+            dom.content.addClass('loading');
+            scope.loadingCount++;
+
+            console.log('loading', scope.loadingCount);
+        });
+
+        $(document).on('loading-data-complete', function(){
+            scope.loadingCount--;
+            if(scope.loadingCount == 0) {
+                scope.loadingSpinner.stop();
+                dom.content.removeClass('loading');
+            }
+
+            console.log('complete', scope.loadingCount);
+        });
+
+        $(document).on('partner-buffering-start', function(){
+            console.log(scope.wasabi.user.id + ' partner-buffering start');
+            dom.playerMessageOverlay.show();
+
+            scope.loadingSpinner.spin(dom.playerMessageOverlay[0]);            
+        });
+
+        $(document).on('partner-buffering-done', function(){
+            console.log(scope.wasabi.user.id + ' partner-buffering done');
+            dom.playerMessageOverlay.hide();
+            scope.loadingSpinner.stop();
+        });
+
+        $(document).on('show-error-message', function(e, data){
+            console.log(scope.wasabi.user.id + ' error: ' + data.message);
+            dom.errorOverlay.find('.error-overlay-message').html(data.message);
+            dom.errorOverlay.show();
+        });
+
+        $(document).on('hide-error-message', function(e, data){
+            console.log(scope.wasabi.user.id + ' hide-error');
+            dom.errorOverlay.hide();
+        });
+
+
+        // ------------------
+        // Load youtube API
+        // ------------------
+        $(document).trigger('loading-data', { message: 'Loading player...' });
+        loadYoutubePlayerScript();
+        
+        // ------------------
+        // Back button click event
+        // ------------------
+        dom.backBUtton.click(function() {
+            sendMessage('return-to-list', {});
+            backToList();
+        });
+
+
+        // ------------------
+        // Init tabs
+        // ------------------
+
+        var tabs = dom.tabs.tabs();
+
+        tabs.on('tab-selected', function(e, data) {
+            switch(data.value){
+                case "popular":
+                    getRecommended();
+                    dom.seachBar.hide();
+                    break;
+                case "search":
+                    clearVideosList();
+                    dom.seachBar.show();
+                    break;
+                default:
+                    break;
+            }
+        });
+
+        $('.search-bar input').on('keydown', function(e){
+            if(e.which == 13) {
+                var value = $(this).val();
+                searchVideos(value);
+                $(this).blur();
+            }
+        });
+    }
+
+    window.onYouTubeIframeAPIReady = function() {
+        onApiReady("youtube");
+        sendMessage('api-ready');
+    };
+
+
+    function onApiReady(message){
+
+        console.log('api-ready: ', message);
+
+        scope.apiReady++;
+        if(scope.apiReady == scope.clientsCount) {
+            
+            scope.player = new YT.Player('player_iframe', {
+                width: '100%',
+                height: '100%',
+                videoId: "",
+                events: {
+                    onReady: function(event) {
+                        onPlayerReady('youtube');
+                        sendMessage('player-ready');
+                    },
+                    onStateChange: onStateChange,
+                    onPlaybackQualityChange: function(event){
+                        console.log(event);
+                    },
+                    onError: function(event){
+                        console.log("Error occured: ", event);
+                        sendMessage('buffering-done', { playerState: YT.PlayerState.UNSTARTED });
+
+                        $(document).trigger('show-error-message', { message: 'The selected video can not be played. <br /> Please try another video.' });
+
+                    }
+                },
+                playerVars: {
+                    modestbranding: 1,
+                    playsinline: 1,
+                    fs: 0,                    
+                    showinfo: 0
+                }
+            });
+        }
+    }
+
+    function clearVideosList() {
+        dom.videosList.find('.list-item').remove();
+    }
+
+    function getRecommended(){
+        // ------------------
+        // Get the recommended videos from youtube
+        // ------------------
+        clearVideosList();
+        $(document).trigger('loading-data', { message: 'Loading list...' });
+        $.get(scope.youtubeServiceUrl, { 
+            part: 'contentDetails, snippet',
+            chart: 'mostPopular',
+            maxResults: 20,
+            key: scope.youtubeApiKey,
+            regionCode: 'US'
+        }).success(function(data){
+            renderVideosList(data);
+            $(document).trigger('loading-data-complete');
+        });
+    }
+
+    function searchVideos(term){
+        // ------------------
+        // Search videos and render the list
+        // ------------------
+        clearVideosList();
+        $(document).trigger('loading-data', { message: 'Loading list...' });
+        $.get(scope.youtubeSearchServiceUrl, { 
+            part: 'id',
+            q: term,
+            maxResults: 20,
+            key: scope.youtubeApiKey,
+            type: 'video',
+            videoSyndicated: true,
+            regionCode: 'US',
+            relevanceLanguage: 'en',
+            videoEmbeddable: true
+        }).success(function(data){
+
+            var videoIds = $.map(data.items, function(item){
+                return item.id.videoId;
+            }).join();
+
+            $.get(scope.youtubeServiceUrl, { 
+                part: 'contentDetails, snippet',
+                id: videoIds,
+                maxResults: 20,
+                key: scope.youtubeApiKey
+            }).success(function(data){
+                renderVideosList(data);
+                $(document).trigger('loading-data-complete');
+            });
+
+        });
+    }
+
+    // ------------------
+    // Load youtube API script asynchronously 
+    // ------------------
+    function loadYoutubePlayerScript() {
+        var tag = document.createElement('script');
+        tag.src = "https://www.youtube.com/iframe_api";
+        var firstScriptTag = document.getElementsByTagName('script')[0];
+        firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+    }
+
+    // ------------------
+    // Stop the video and go back to list
+    // ------------------
+    function backToList() {
+        scope.player.stopVideo();
+        dom.player.hide();
+        dom.videosList.show();
+        clearInterval(scope.timelineChangeInterval);
+        scope.appSate = 'list';
+
+        $(document).trigger('hide-error-message');
+    }
+
+    // ------------------
+    // Generate a list of videos with underscore template
+    // ------------------
+     function renderVideosList (data) {
+
+        var videosListItemTemplate = _.template($('#video-list-item').html());
+
+        _.each(data.items, function(item, index) {
+
+            var duration = youtubeHelpers.youtubeDurationStringToObj(item.contentDetails.duration);
+
+            item.duration = youtubeHelpers.timeObjToString(duration);
+
+            var html = videosListItemTemplate({ item: item });
+
+            var domVideoItem = $(html);
+
+            domVideoItem.on('click', onVideoListItemClick);
+
+            dom.videosList.append(domVideoItem);
+        });
+    }
+
+    // ------------------
+    // SendMessage wrapper 
+    // ------------------
+    function sendMessage(eventName, data) {
+        var message = {
+            eventName: eventName,
+            data: data || {}
+        };
+        
+        scope.wasabi.sendMessage(rounds.wasabi.ALLSESSIONUSERS, JSON.stringify(message));
+    }
+
+    // ------------------
+    // Instantiate the player
+    // ------------------
+    function playYoutubeVideo(youtubeId){ 
+        dom.videosList.hide();
+        dom.player.show();
+        scope.appSate = 'player';
+
+        scope.player.loadVideoById(youtubeId);
+        scope.player.setPlaybackQuality("medium");
+        trackTimeLine();
+    }
+
+    // ------------------
+    // Make sure both players are ready
+    // ------------------
+    function onPlayerReady(message) {
+        console.log("player ready: " + message);
+
+        scope.playerReadyCount++;
+        if(scope.playerReadyCount == scope.clientsCount) {
+            $(document).trigger('loading-data-complete');
+        }
+    }
+
+    // ------------------
+    // Video list item click callback
+    // ------------------
+    function onVideoListItemClick() {
+        var self = $(this);
+
+        var youtubeId = self.attr('data-youtube-id');
+        
+        sendMessage('video-selected', {
+            youtubeId: youtubeId
+        });
+
+        
+        // getVideoStatus(youtubeId, function(data){
+        //     var videoStatus = data.items[0].status;
+        //     if(videoStatus.embeddable) {
+        //         sendMessage('video-selected', {
+        //             youtubeId: youtubeId
+        //         });
+        //     }
+        // });
+    }
+    
+    // ------------------
+    // Video timeline change (youtube api doesn't have such event and there is no way to attach to progress bar drag event)
+    // ------------------
+    function trackTimeLine() {
+        clearInterval(scope.timelineChangeInterval);
+
+        var previousTime;
+
+        // check for current time every second
+        scope.timelineChangeInterval = setInterval(function(){
+            
+            var currentTime = scope.player.getCurrentTime();
+            var timeDifference = Math.abs(previousTime - currentTime);
+
+            // check if timeline changed for more than 2 sec
+            if(timeDifference > 2){
+                sendMessage('timeline-changed', {
+                    currentTime: currentTime
+                });
+            }
+
+            previousTime = currentTime;
+
+        }, 1000);  
+    }
+
+    // ------------------
+    // React on player state change (send sync messages to other clients)
+    // ------------------
+    function onStateChange(event) {
+        var status = event.data;
+        
+        sendMessage('partner-player-state-change', status);
+
+        console.log(scope.wasabi.user.id + ' state: ' + status);
+
+        switch(status) {
+            
+            case YT.PlayerState.UNSTARTED:
+                sendMessage('buffering-done', { playerState: YT.PlayerState.UNSTARTED });
+                break;
+
+
+            case YT.PlayerState.PLAYING:
+                if(scope.playerState == YT.PlayerState.BUFFERING) {
+                    console.log(scope.wasabi.user.id + ' sending message: buffering-done');
+                    sendMessage('buffering-done', { playerState: YT.PlayerState.PLAYING });
+                    scope.player.pauseVideo();
+                    scope.pausedAfterBuffering = true;
+                    console.log(scope.wasabi.user.id + ' player state: paused after buffering');
+                } else {
+                    console.log(scope.wasabi.user.id + ' player state: playing');
+                    console.log(scope.wasabi.user.id + " sending message: resume-video");
+                    sendMessage('resume-video');
+                }
+                
+                break;
+
+            case YT.PlayerState.PAUSED:
+                console.log(scope.wasabi.user.id + ' player state: paused');
+                if(scope.partnerPlayerState != YT.PlayerState.BUFFERING && !scope.pausedAfterBuffering) {
+                    console.log(scope.wasabi.user.id + " sending message: pause-video");
+                    sendMessage('pause-video');
+                }
+
+                if(scope.playerState == YT.PlayerState.BUFFERING) {
+                    sendMessage('buffering-done', { playerState: YT.PlayerState.PAUSED });
+                } 
+
+                scope.pausedAfterBuffering = false;
+                
+                break;
+
+            case YT.PlayerState.BUFFERING:
+                console.log(scope.wasabi.user.id + ' player state: buffering');
+                console.log(scope.wasabi.user.id + " sending message: buffering-video");
+                sendMessage('buffering-video');                
+                break;
+                
+            case YT.PlayerState.ENDED:
+                backToList();
+                sendMessage('return-to-list');
+                break;
+
+            default:
+                break;
+        }
+
+        scope.playerState = status;
+    }
+
+    // ------------------
+    // Placeholder
+    // ------------------
+    function onParticipantConnected(event, objType, data) {
+        //console.log("user:", data);
+    }
+
+    // ------------------
+    // Message received callback (sync logic)
+    // ------------------
+    function onMessageReceived(event, objType, data) {
+        var params = JSON.parse(data.message);
+
+        console.log(scope.wasabi.user.id + " INCOMING MESSAGE: " + params.eventName + ", data: ", params, data);
+
+        switch(params.eventName) {
+
+
+            case 'connection-confirmed':
+                clearInterval(scope.connectionPing);
+                if(!scope.connectionConfirmed) {
+                    init();
+                    scope.connectionConfirmed = true;
+                }
+                break;
+
+            case 'check-connection':
+                console.log('check');
+                sendMessage('connection-confirmed');
+                break;
+
+            case 'video-selected':
+                onVideoSelected(params.data.youtubeId);
+                break;
+
+            case 'player-ready':
+                onPlayerReady('wasabi');
+                break;
+
+            case 'api-ready':
+                onApiReady('wasabi');
+                break;
+
+            case 'return-to-list':
+                backToList();
+                break;
+
+            case 'play-video':
+                playYoutubeVideo(params.data.youtubeId);
+                break;            
+
+            case 'buffering-video':
+                pauseVideo();
+                $(document).trigger('partner-buffering-start');
+                break;
+
+            case 'buffering-done':
+                if(params.data.playerState == YT.PlayerState.PAUSED){
+                    scope.player.pauseVideo();
+                }
+                if(params.data.playerState == YT.PlayerState.PLAYING){
+                    scope.player.playVideo();
+                }
+                
+                $(document).trigger('partner-buffering-done');
+                break;
+
+            case 'pause-video':
+                pauseVideo();
+                break;
+
+            case 'resume-video':
+                scope.player.playVideo();              
+                break;
+
+            case 'timeline-changed': 
+                clearInterval(scope.timelineChangeInterval);
+                scope.player.seekTo(params.data.currentTime, true);
+                trackTimeLine();   
+                break;
+
+            case 'partner-player-state-change': 
+                scope.partnerPlayerState = params.data;
+                break;
+
+            default:
+                break;
+        }
+    }
+
+    // ------------------
+    // Pause if not buffering
+    // ------------------
+    function pauseVideo() {
+        if(scope.playerState != YT.PlayerState.BUFFERING && scope.playerState != YT.PlayerState.PAUSED){
+            console.log(scope.wasabi.user.id + ' pause-triggered');
+            scope.player.pauseVideo();
+        }
+    }
+
+    // ------------------
+    // Get video status
+    // ------------------
+    function getVideoStatus(youtubeId, callback) {
+        $.get(scope.youtubeServiceUrl, { 
+            part: 'status, contentDetails',
+            id: youtubeId,
+            key:  scope.youtubeApiKey
+        }).success(function(data){
+            if($.isFunction(callback)) {
+                callback(data);
+            }
+        });
+    }
+
+    // ------------------
+    // Check if video can be played TODO: add more logic
+    // ------------------
+    function onVideoSelected(youtubeId) {    
+        sendMessage('play-video', {
+            youtubeId: youtubeId
+        });
+        playYoutubeVideo(youtubeId);
+    }
+
+
+    initWasabi();
+
+})(jQuery, rounds._);

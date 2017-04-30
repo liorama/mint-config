@@ -1,0 +1,17 @@
+- hosts: tag_Name_grafana-1
+  remote_user: ubuntu
+  become: true
+  roles:
+    - ubik/playbooks/roles/docker
+    - telegraf
+    - consul-deploy/playbooks/roles/consul
+    - static_server
+    - grafana
+    - nginx-proxy/playbooks/roles/grafana  # NOTE must be after grafana because it links to that container
+  vars:
+    telegraf_app_name: grafana
+    telegraf_docker_name: telegraf
+    telegraf_docker_image_name: rounds/telegraf:vanilla
+
+    consul_type: client
+    consul_env: prod

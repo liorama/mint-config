@@ -1,0 +1,34 @@
+FROM rounds/python-alpine
+MAINTAINER Doody Parizada <doody@rounds.com>, Ory Band <ory@rounds.com>
+
+# setup ssh
+# required for cloning eshulib private repo
+#
+# and also install dependencies
+COPY requirements.txt /tmp/
+RUN apk add -qU --no-cache -t .build-deps build-base git \
+    && echo "@testing http://nl.alpinelinux.org/alpine/edge/testing" >> /etc/apk/repositories \
+    && apk add -qU libcouchbase@testing libcouchbase-libev@testing libcouchbase-dev@testing \
+    && pip install -q --no-cache-dir -r /tmp/requirements.txt \
+    && apk del -q .build-deps
+
+# required for polling couchbase is ready
+RUN apk add -qU --no-cache curl
+
+# app port
+EXPOSE 5000
+
+ENV BOOYAH_DEBUG= \
+    BOOYAH_APP_PORT= \
+    BOOYAH_COUCHBASE_BUCKET= \
+    BOOYAH_COUCHBASE_CONFERENCES_BUCKET= \
+    BOOYAH_COUCHBASE_URLS= \
+    BOOYAH_ESHU_FRONTEND_PASSWORD= \
+    BOOYAH_ESHU_FRONTEND_URL= \
+    BOOYAH_GEOIP_PATH= \
+    NEW_RELIC_CONFIG_FILE=/opt/app/newrelic.ini
+
+RUN mkdir -p /opt/app
+WORKDIR /opt/app
+
+# NOTE code is copied or mounted in prod/dev dockerfiles.

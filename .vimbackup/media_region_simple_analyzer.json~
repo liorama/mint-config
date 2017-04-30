@@ -1,0 +1,20 @@
+{
+	"template": "rkik*",
+	"mappings": {
+		"_default_": {
+			"dynamic_templates": [
+				{
+					"media_region_not_analyzed": {
+						"path_match":   "media.region",
+						"mapping": {
+							"type":       "string",
+                            "analyzer": "whitespace"
+						}
+					}
+				}
+			]
+		}
+	}
+}
+
+/* Set media server's location as Geo Point - template name: media_region_simple_analyzer*/

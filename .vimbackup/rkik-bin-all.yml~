@@ -1,0 +1,9 @@
+- hosts: "{{ hosts | default('tag_type_mobile-logs-prod') }}"
+  remote_user: "{{ remote_user | default('ubuntu') }}"
+  roles:
+    - nginx-s3-upload
+  vars_files:
+    - vars/rounds-apps.yml
+  vars:
+    target_name: mobile-logs (production)
+  become: true

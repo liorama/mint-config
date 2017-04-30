@@ -1,0 +1,26 @@
+#!/bin/bash
+
+# """
+# Clears the website's wordpress page cache
+# """
+
+green="\033[0;32m"
+normal="\033[0;0m"
+red="\e[31m"
+blink="\e[5m"
+
+echo "Clearing wordpress page cache..."
+
+# Using Lior's Cookie, should be changed
+resp=$(curl 'http://www.rounds.com/wp/wp-admin/admin.php?page=w3tc_pgcache&w3tc_note=flush_pgcache'\
+    -sH 'Pragma: no-cache' -H 'Accept-Encoding: gzip, deflate, sdch' -H 'Accept-Language: en,he;q=0.8,en-GB;q=0.6'\
+    -H 'Upgrade-Insecure-Requests: 1' -H 'User-Agent: Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/47.0.2526.27 Safari/537.36'\
+    -H 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8' -H 'Cache-Control: no-cache'\
+    -H 'Cookie: wordpress_2d34d45a04a9dc9b4c24f30a2c5e0553=lior%7C1446044173%7CXGTyMNSTexhISbMJwnWmCu2PMj4vi3fcZ7jIoJrQowK%7C4fd69a06cd8b0964be749167bfa8a206ced098de7c71a7281a800931fa91094b; wordpress_test_cookie=WP+Cookie+check; wordpress_logged_in_2d34d45a04a9dc9b4c24f30a2c5e0553=lior%7C1446044173%7CXGTyMNSTexhISbMJwnWmCu2PMj4vi3fcZ7jIoJrQowK%7Cc51e1b8bf8783b725debcaa101585cca4340f5b47a50e3e447184338ec4329ec; wp-settings-time-37=1445871462; __utma=43195430.251638139.1444663140.1445066473.1445107301.5; __utmc=43195430; __utmz=43195430.1444663140.1.1.utmcsr=(direct)|utmccn=(direct)|utmcmd=(none); _gat=1; wordpress_test_cookie=WP+Cookie+check; wordpress_logged_in_2d34d45a04a9dc9b4c24f30a2c5e0553=lior%7C1446044173%7CXGTyMNSTexhISbMJwnWmCu2PMj4vi3fcZ7jIoJrQowK%7Cc51e1b8bf8783b725debcaa101585cca4340f5b47a50e3e447184338ec4329ec; _ga=GA1.2.251638139.1444663140'\
+    -H 'Connection: keep-alive' --compressed)
+if [[ $resp == *"successfully"* ]]; then
+    echo -e "${green}Cache cleared successfully";
+else
+    echo -e "${red}${blink}FAILED clearing cache${normal}, response was:";
+    echo $resp
+fi

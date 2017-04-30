@@ -1,0 +1,1 @@
+0 * * * * root /opt/application/rounds/ricapi/scripts/rounds_script python /opt/application/rounds/ricapi/scripts/update_country_weight.py --env prod

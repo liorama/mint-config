@@ -1,0 +1,103 @@
+THIS_FILE := $(lastword $(MAKEFILE_LIST)) #allows running sub-makes
+ifeq ($(shell uname -s),Linux)
+	PUBLIC_NET_HOST_IP := $(shell ip route get 8.8.8.8 | awk 'NR==1 {print $$NF}')
+else
+	PUBLIC_NET_HOST_IP := $(shell ifconfig $$(route get default | grep interface | awk '{print $$NF}') | grep 'inet ' | awk '{print $$2}')
+endif
+
+# docker-command nothing by default
+all: help
+
+help:
+	@echo "running the server for the first time (init step)"
+	@echo "'make init'"
+	@echo ""
+	@echo "starting a server on localhost:5000"
+	@echo "'make up'"
+	@echo "stopping the server"
+	@echo "'make down'"
+	@echo ""
+	@echo "as a shortcut you can also run chain targets and they will run sequentially:"
+	@echo "'make init up'"
+	@echo ""
+	@echo "for local testing in docker run the following:"
+	@echo "  * 'make init' create base images"
+	@echo "  * 'make up' start the frontend server on port 5000"
+	@echo "  * 'make test' run the test suite"
+	@echo "  * 'make down' stop the app server"
+	@echo "  * 'make clean' remove all data from couchbase"
+	@echo ""
+	@echo "for deploying new images:"
+	@echo "  * 'make 'build-prod push-prod'"
+
+
+couchbase_dump_scripts=image/database/couchbase/scripts
+
+deps: ${couchbase_dump_scripts}/init_couchbase_image.sh
+
+${couchbase_dump_scripts}/init_couchbase_image.sh:
+	git clone --depth=1 --branch=master git@github.com:rounds/couchbase-dump ${couchbase_dump_scripts}
+	rm -rf ${couchbase_dump_scripts}/.git
+
+init: app-base deps db geoip
+
+geoip:
+	docker-compose up geoip
+
+up:
+	docker-compose up -d rabbit
+	docker-compose up --no-recreate -d couchbase
+	sleep 15  # give couchbase and rabbit enough time to be available for the app
+	docker-compose up --no-recreate -d conference media-callbacks
+
+down:
+	docker-compose stop
+
+SSH_KEY_FILE ?= ~/.ssh/id_rsa
+app-base:
+	@B64_SSH_KEY="$(shell base64 -w 0 ${SSH_KEY_FILE})" docker-compose build conference-base
+	docker-compose build conference media-callbacks test
+
+db:
+	docker-compose stop couchbase init-couchbase
+	docker-compose rm -fv couchbase init-couchbase
+	docker-compose up init-couchbase
+	sleep 10
+	docker-compose up init-balancer-data
+	docker-compose run init-balancer-data /opt/image/init_docker_media_servers.sh $(PUBLIC_NET_HOST_IP)
+
+logs:
+	docker-compose logs -f
+
+test:
+	docker-compose run test
+
+test-remote:
+	docker-compose run -e APP_TEST_REMOTE=true -e APP_TEST_ADDRESS=conference-rkik.rounds.video test py.test -k test_remote_server
+
+shell:
+	docker-compose run conference /bin/sh
+
+app-shell:
+	docker-compose run conference ipython -i ./shell.py
+
+clean:
+	docker-compose down -v
+
+purge:
+	docker-compose down -v --rmi all
+
+# targets for building images and pushing them to docker hub
+# used by Travis
+build-prod: app-base
+	docker build -t rounds/conference-service -f Dockerfile.prod \
+    --build-arg BUILD_COMMIT="$(shell git rev-parse --short HEAD)" \
+    --build-arg BUILD_TIMESTAMP="$(shell date -u +"%Y-%m-%dT%H:%M:%SZ")" .
+	docker build -t rounds/nginx-proxy image/nginx-proxy
+
+push-prod:
+	docker push rounds/conference-service
+	docker push rounds/nginx-proxy
+
+docker-command:
+	@echo "docker run -it --rm -e APP_DEBUG=True -e APP_PORT=5000 -e APP_COUCHBASE_BUCKET=default -e APP_COUCHBASE_URLS=couchbase-booyah-i-012acb81a225be2da.rounds.prod -e APP_RABBIT_HOST=rabbitmq.rounds.video -e APP_RABBIT_USER=frontend -e APP_RABBIT_PASS=pass -e APP_RABBIT_VHOST=/ -e APP_RABBIT_EXCHANGE=media -e APP_RABBIT_QUEUE=media -e APP_RABBIT_ROUTING_KEY=media -e APP_ENABLE_MQ_CONSUMER=true sh"

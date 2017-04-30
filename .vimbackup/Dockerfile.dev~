@@ -1,0 +1,9 @@
+pip install -r dev-require
+FROM rounds/booyah-base
+MAINTAINER Doody Parizada <doody@rounds.com>, Ory Band <ory@rounds.com>
+
+COPY image/booyah-dev/* /tmp/
+
+VOLUME ["/opt/app"]
+
+CMD ["/tmp/cmd.sh"]

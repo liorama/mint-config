@@ -1,0 +1,91 @@
+from ..base_models import Geo
+
+
+ZONE_DATA = {
+'do-ams3': {'city': u'Amsterdam',
+        'continent': u'EU',
+        'country_code': u'NL',
+        'country_name': u'Netherlands',
+        'location': {'lat': 52.3528, 'lon': 4.941399999999987},
+        'region_code': u'07'},
+
+'do-ams2': {'city': u'Amsterdam',
+        'continent': u'EU',
+        'country_code': u'NL',
+        'country_name': u'Netherlands',
+        'location': {'lat': 52.296400000000006, 'lon': 4.954100000000011},
+        'region_code': u'07'},
+
+'do-tor1': {'city': u'Toronto',
+        'continent': u'NA',
+        'country_code': u'CA',
+        'country_name': u'Canada',
+        'location': {'lat': 43.65549999999999, 'lon': -79.3626},
+        'region_code': u'ON'},
+
+'do-fra1': {'city': u'Frankfurt',
+        'continent': u'EU',
+        'country_code': u'DE',
+        'country_name': u'Germany',
+        'location': {'lat': 50.11670000000001, 'lon': 8.683300000000003},
+        'region_code': u'05'},
+
+'do-blr1': {'city': u'Bangalore',
+        'continent': u'AS',
+        'country_code': u'IN',
+        'country_name': u'India',
+        'location': {'lat': 12.983300000000014, 'lon': 77.58330000000001},
+        'region_code': u'19'},
+
+'do-nyc1': {'city': u'New York',
+        'continent': u'NA',
+        'country_code': u'US',
+        'country_name': u'United States',
+        'location': {'lat': 40.73079999999999, 'lon': -73.9975},
+        'region_code': u'NY'},
+
+'do-nyc2': {'city': u'New York',
+        'continent': u'NA',
+        'country_code': u'US',
+        'country_name': u'United States',
+        'location': {'lat': 40.73079999999999, 'lon': -73.9975},
+        'region_code': u'NY'},
+
+'do-nyc3': {'city': u'New York',
+        'continent': u'NA',
+        'country_code': u'US',
+        'country_name': u'United States',
+        'location': {'lat': 40.73079999999999, 'lon': -73.9975},
+        'region_code': u'NY'},
+
+'do-lon1': {'city': u'London',
+        'continent': u'EU',
+        'country_code': u'GB',
+        'country_name': u'United Kingdom',
+        'location': {'lat': 51.50919999999999, 'lon': -0.09549999999998704},
+        'region_code': u'H9'},
+
+'do-sgp1': {'city': u'Singapore',
+        'continent': u'AS',
+        'country_code': u'SG',
+        'country_name': u'Singapore',
+        'location': {'lat': 1.2855000000000132, 'lon': 103.85649999999998},
+        'region_code': u'00'},
+
+'do-sfo1': {'city': u'San Francisco',
+        'continent': u'NA',
+        'country_code': u'US',
+        'country_name': u'United States',
+        'location': {'lat': 37.735299999999995, 'lon': -122.3732},
+        'region_code': u'CA'},
+
+'do-sfo2': {'city': u'Santa Clara',
+        'continent': u'NA',
+        'country_code': u'US',
+        'country_name': u'United States',
+        'location': {'lat': 37.3501, 'lon': -121.9854},
+        'region_code': u'CA'}
+}
+
+def get_for(zone):
+    return Geo(ZONE_DATA.get(zone, {}), strict=False)

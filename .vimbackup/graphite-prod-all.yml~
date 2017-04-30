@@ -1,0 +1,7 @@
+- hosts: tag_type_graphite_new
+  user: ubuntu
+  sudo: true
+  roles:
+    - rounds-common-roles
+    - graphite
+    - { role: secure_app, secure_app_port: 8080 }

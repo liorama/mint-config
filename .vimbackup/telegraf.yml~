@@ -1,0 +1,55 @@
+- name: install and configure telegraf
+  hosts: all
+  become: yes
+  remote_user: "{{ remote_user | default('ubuntu') }}"
+  environment:
+    RUNLEVEL: "1"
+
+  tasks:
+    - name: Add influxdb apt key
+      apt_key:
+        url: "https://repos.influxdata.com/influxdb.key"
+        state: present
+
+    - name: Add influxdb repository  
+      apt_repository:
+        repo: "deb https://repos.influxdata.com/{{ ansible_distribution | lower }} {{ ansible_distribution_release }} stable"
+        state: present
+        filename: 'influxdb'
+
+    - name: install the latest version of telegraf
+      package:
+        name: telegraf
+        state: latest
+
+    - name: Add user telegraf to docker group
+      user:
+        name: telegraf
+        groups: docker
+        append: yes
+
+    - name: copy telegraf configuration
+      copy:
+        src: files/telegraf.conf
+        dest: /etc/telegraf/telegraf.conf
+        owner: telegraf
+        group: telegraf
+        mode: "0644"
+      notify:
+      - restart telegraf
+
+    - name: copy default telegraf configuration
+      copy:
+        src: files/telegraf
+        dest: /etc/default/telegraf
+        owner: root
+        group: root
+        mode: "0644"
+      notify:
+      - restart telegraf
+
+  handlers:
+    - name: restart telegraf
+      service:
+        name: telegraf
+        state: restarted

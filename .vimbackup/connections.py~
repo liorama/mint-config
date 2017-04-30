@@ -1,0 +1,27 @@
+from gcouchbase.bucket import Bucket as GBucket
+from .. import config
+
+cfg = config.init()
+
+# global connection object
+_connections = {}
+
+def init(buckets, host, connection_class=GBucket):
+    """Connect to couchbase and return connections.
+
+    Connections are cached via global variable.
+    """
+    global _connections
+    for bucket in buckets:
+        _connections[bucket] = connection_class('couchbase://%s/%s' % (host, bucket))
+        _connections[bucket].timeout = 5
+
+
+def get_conf_cb():
+    """Get the conferences buckete connection."""
+    return _connections[cfg['COUCHBASE_CONFERENCES_BUCKET']]
+
+
+def get(bucket=cfg['COUCHBASE_DEFAULT_BUCKET']):
+    """Get couchbase connection for the given bucket name."""
+    return _connections[bucket]

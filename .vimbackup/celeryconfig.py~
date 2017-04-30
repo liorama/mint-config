@@ -1,0 +1,47 @@
+import config_base
+
+BROKER_URL = config_base.CELERY['BROKER_URL']
+CELERY_RESULT_BACKEND = config_base.CELERY['CELERY_RESULT_BACKEND']
+CELERY_CACHE_BACKEND = config_base.CELERY['CELERY_CACHE_BACKEND']
+CELERYD_PREFETCH_MULTIPLIER = 1  # the lowest possible
+
+CELERY_IMPORTS = (
+    'vidyo._celery', 'vidyo.push', 'vidyo.vidyo_server.tasks', 'vidyo.timers',
+    'vidyo.helpers', 'vidyo.store_qos_stats',
+    'api.notify', 'api.event_handlers', 'api.views', 'api.wire.async_sender',
+    'api.wire.async_callbacks', 'xmpp_presence.presence_manager.tasks',
+    'multi.tasks', 'multi.helpers')
+
+CELERY_CREATE_MISSING_QUEUES = True
+CELERY_ROUTES = {
+    'api.event_handlers.on_facebook_realtime_update': {'queue': 'facebook_updates'},
+    'api.event_handlers.import_friends': {'queue': 'slow'},
+    'api.notify.notify_friends': {'queue': 'slow'},
+    'api.event_handlers.async_register_to_s2c_xmpp': {'queue': 'fast'},
+    'api.event_handlers.async_send_push_notification': {'queue': 'fast'},  # chat messages
+    'api.event_handlers.async_send_push_msg': {'queue': 'fast'},  # chat messages
+    'api.event_handlers.on_comm_event': {'queue': 'analytics'},
+    'api.event_handlers.mark_doomed_invite': {'queue': 'analytics'},
+    'api.event_handlers.on_device_token': {'queue': 'rscip_delay'},
+    'ricapi.events.async_submit_event': {'queue': 'analytics'},
+    'vidyo.store_qos_stats.save_qos_stats':  {'queue': 'analytics'},
+    'vidyo.helpers.create_1_on_1_interaction':  {'queue': 'rscip'},
+    'vidyo.push.cancel_invite_on_other_devices':  {'queue': 'rscip'},
+    'vidyo.push.conference_update':  {'queue': 'rscip'},
+    'vidyo.push.media_update':  {'queue': 'rscip'},
+    'vidyo.push.invite_declined':  {'queue': 'rscip'},
+    'vidyo.push.invite_received':  {'queue': 'rscip'},
+    'vidyo.push.invite_to_conference':  {'queue': 'rscip'},
+    'vidyo.push.presence_update':  {'queue': 'rscip'},
+    'vidyo.push.conference_closed':  {'queue': 'rscip'},
+    'vidyo.timers._check_media_start':  {'queue': 'rscip_delay'},
+    'vidyo.vidyo_server.tasks.close_conference':  {'queue': 'rscip'},
+    'vidyo.vidyo_server.tasks.force_leave':  {'queue': 'rscip'},
+}
+
+
+CELERY_TASK_RESULT_EXPIRES = 300  # 5m
+CELERY_ALWAYS_EAGER = config_base.CELERY.get('ALWAYS_EAGER', False)
+
+CELERY_IGNORE_RESULT = True
+CELERY_ACKS_LATE = True

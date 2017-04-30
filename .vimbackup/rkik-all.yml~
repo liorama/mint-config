@@ -1,0 +1,15 @@
+- hosts: "{{ hosts | default('tag_type_mobile-logs-prod') }}"
+  remote_user: "{{ remote_user | default('ubuntu') }}"
+  roles:
+    - ubik/playbooks/roles/rounds-common-roles
+    - monitoring/playbooks/roles/collectd-docker
+    - { role: monitoring/playbooks/roles/statsd, statsd_rounds_account_name: rounds-apps }
+  become: true
+  vars:
+    datadog_tags:
+      - "environment:production"
+      - "application:mobile-logs-upload"
+    collectd_nginx_enabled: true
+    collectd_nginx_host: http://localhost:80/nginx_status
+
+- include: rkik-bin-all.yml

@@ -1,0 +1,48 @@
+#!/usr/bin/env python
+
+import sys
+
+from couchbase.bucket import Bucket
+import couchbase_client
+
+from balancer import server_status, MediaServer, regions, init as init_balancer
+import config
+
+
+cfg = config.init()
+
+
+if __name__ == '__main__':
+    if len(sys.argv) < 4:
+        print 'usage: %s <region> <ip> <fqdn> [port] [tls_port] [status]' % sys.argv[0]
+        print 'example \t%s DEU_frankfurt1_DO 127.0.0.1 www.god.com' % sys.argv[0]
+        print 'example \t%s DEU_frankfurt1_DO 127.0.0.1 www.god.com 50000 50001 down' % sys.argv[0]
+        sys.exit(1)
+
+    couchbase_client.init(
+        buckets=[cfg['COUCHBASE_BUCKET'], cfg['COUCHBASE_CONFERENCES_BUCKET']],
+        host=cfg['COUCHBASE_URLS'], connection_class=Bucket)
+
+    init_balancer()
+
+    params = {}
+    params['region'] = sys.argv[1]
+    if params['region'] not in balancer.regions.__all__:
+        print 'Specified region isn\'t valid, it should be one of these: %s' % regions.__all__
+        sys.exit(2)
+    params['ip'] = sys.argv[2]
+    params['fqdn'] = sys.argv[3]
+    if len(sys.argv) > 4:
+        params['port'] = sys.argv[4]
+    if len(sys.argv) > 5:
+        params['tls_port'] = sys.argv[5]
+    if len(sys.argv) > 6:
+        status = sys.argv[6]
+        if status not in server_status.__all__:
+            print 'Specified status isn\'t valid, it should be one of these: %s' % server_status.__all__
+            sys.exit(7)
+        params['status'] = status
+
+    server = MediaServer.create(**params)
+    server.save()
+    print server

@@ -1,0 +1,67 @@
+<?php
+require 'vendor/autoload.php';
+
+use Aws\S3\S3Client;
+use Aws\S3\Exception\S3Exception;
+
+$date = $_REQUEST['date'];
+if(isset($_REQUEST['conference_id']))
+{
+	$conference_id = $_REQUEST['conference_id'];
+	$sql = "select * from vidyo_comm_event where conference_id = $conference_id and DATE(event_timestamp) = '$date' order by id;";
+}
+
+if(isset($_REQUEST['type']))
+{
+	$count = $_REQUEST['count'];
+        $sql = "select distinct(conference_id), id from vidyo_comm_event where conference_id != 0 order by id desc limit $count;";
+}
+else if(isset($_REQUEST['user_id']))
+{
+        $user_id = $_REQUEST['user_id'];
+        $sql = "select * from vidyo_comm_event where user_id = $user_id  and DATE(event_timestamp) = '$date' group by conference_id order by id;";
+}
+
+$con = mysql_connect("tmp.chw9e5vaf0ot.us-east-1.rds.amazonaws.com","master","FiddlerOnTheRoof", "analytics");
+if (!$con)	
+  {
+  die('Could not connect: ' . mysql_error());
+  }
+
+mysql_select_db("analytics");
+//$sql = "select * from vidyo_comm_event where conference_id = $conference_id and DATE(event_timestamp) = '$date' order by id;";
+$sth = mysql_query($sql, $con);
+
+if(!$sth)
+{
+  die("Database query failed: " . mysql_error());
+}
+$rows = array();
+while($r = mysql_fetch_assoc($sth)) {
+    $rows[] = $r;
+}
+
+if(isset($_REQUEST['user_id']))
+{
+	$bucket = 'rounds-mobile-conferences-logs';
+
+	$s3 = S3Client::factory(array('credentials' => array('key' => 'AKIAJFEJ7ZFH4KRGCXPQ', 'secret' => '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') ));
+
+	$objects = $s3->getIterator('ListObjects', array('Bucket' => $bucket, 'Prefix' => $date.'/'.$_REQUEST['user_id'].'/'));
+
+	foreach ($objects as $object) {
+    		$splited_path = explode("/", $object['Key']);
+    		$file_name = $splited_path[3];
+    		$conference_id = substr($file_name, 0, strpos($file_name, '-'));
+    		$url = "https://s3.amazonaws.com/rounds-mobile-conferences-logs/".$object['Key'];
+		foreach($rows as &$row){
+			if( strcmp($row['conference_id'],$conference_id) == 0 ){
+				$row['link'] = $url;
+			}
+		}
+	}
+}
+print json_encode($rows);
+
+mysql_close($con);
+?>

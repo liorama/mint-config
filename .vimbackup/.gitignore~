@@ -1,0 +1,6 @@
+# ide config
+.idea
+
+
+#ansible
+ansible-playbook.log

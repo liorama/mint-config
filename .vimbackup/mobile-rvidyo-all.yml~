@@ -1,0 +1,21 @@
+- include: mobile-rvidyo-server-check.yml
+- include: anti-stun.yml
+- hosts: ~mobile-rvidyo-.+
+  remote_user: root
+  roles:
+    - rounds-common-roles
+    - media-server
+    - mobile-rvidyo
+    - { role: sensu-client, tags: [ 'monitors' ] }
+  vars:
+    rvidyo_region_number: 
+    service_name: "rvidyo" #rvidyo/rvidyo.2
+    git_revision: "03112015"
+    signaling_port: 50000
+    http_port: 49999
+    media_protocol: "udp"
+    ca_file: "comodo-rsa-domain-validation-sha-2-intermediates.ca-bundle"
+    cert_pub: "kwakwa.crt"
+    cert_priv: "kwakwa.key"
+    sensu_client_subscriptions: "[\"rvidyo-mobile\"]"
+    media_protocol: udp

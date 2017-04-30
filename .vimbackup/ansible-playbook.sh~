@@ -1,0 +1,40 @@
+#!/bin/sh
+# execute ansible-playbook in docker
+
+set -e
+
+echo "pulling latest ansible-docker image..."
+docker pull kikinteractive/ansible-docker
+
+# NOTE docker api socket is mounted since mounted volumes have to be inspected
+# see entrypoint.sh for more details
+DIRNAME=$(basename $(pwd))
+UBIK=/opt/ubik
+
+# aws authentication
+#
+# NOTE this requires lp-aws-saml.py to be in your $PATH
+# see README for more info
+lp-aws-saml.py --profile-name ubik
+export AWS_ACCESS_KEY_ID=$(sed -nr "/^\[ubik\]/ { :l /^aws_access_key_id[ ]*=/ { s/aws_access_key_id = [ ]*//; p; q;}; n; b l;}" ~/.aws/credentials)
+export AWS_SESSION_TOKEN=$(sed -nr "/^\[ubik\]/ { :l /^aws_session_token[ ]*=/ { s/aws_session_token = [ ]*//; p; q;}; n; b l;}" ~/.aws/credentials)
+export AWS_SECRET_ACCESS_KEY=$(sed -nr "/^\[ubik\]/ { :l /^aws_secret_access_key[ ]*=/ { s/aws_secret_access_key = [ ]*//; p; q;}; n; b l;}" ~/.aws/credentials)
+export AWS_SECURITY_TOKEN=$AWS_SESSION_TOKEN
+
+docker run \
+    --rm \
+    -it \
+    -v /var/run/docker.sock:/var/run/docker.sock \
+    -v $(realpath $(dirname $0)):$UBIK \
+    -v $PWD:/opt/$DIRNAME \
+    -v $HOME/.ssh:/opt/ssh \
+    -w /opt/$DIRNAME \
+    -e UBIK=$UBIK \
+    -e ANSIBLE_CONFIG=$UBIK/ansible.cfg \
+    -e PLAYBOOK_USER=$(logname)@$(hostname) \
+    -e GITHUB_SSH_KEY \
+    -e AWS_SECRET_ACCESS_KEY \
+    -e AWS_SESSION_TOKEN \
+    -e AWS_SECURITY_TOKEN=$AWS_SESSION_TOKEN \
+    -e AWS_ACCESS_KEY_ID \
+    kikinteractive/ansible-docker "$@"

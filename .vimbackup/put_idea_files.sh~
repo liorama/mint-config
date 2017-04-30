@@ -1,0 +1,9 @@
+#!/bin/bash
+
+mkdir ../.idea/jsLinters -p
+cp -r  ../.idea/ ../.idea.bk
+cp -r ./jsLinters  ../.idea/jsLinters
+cp ./watcherTasks.xml ../.idea
+cp ./codeStyleSettings.xml ../.idea
+
+

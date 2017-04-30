@@ -1,0 +1,16 @@
+ - src: git@github.com:rounds/ubik.git
+   name: ubik
+   scm: git
+   version: 5b24a93
+
+ - src: git@github.com:kikinteractive/monitoring.git
+   name: monitoring
+   scm: git
+   version: master
+
+ - src: git@github.com:rounds/consul-deploy.git
+   name: consul-deploy
+   scm: git
+   version: master
+
+ - src: angstwad.docker_ubuntu

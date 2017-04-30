@@ -1,0 +1,156 @@
+version: "2"
+
+services:
+
+  conference-base:
+    build:
+      dockerfile: Dockerfile.base
+      context: .
+      args:
+        - B64_SSH_KEY=${B64_SSH_KEY}
+
+    image: rounds/conference-base
+
+  # requires rounds/conference-base image to be built first via:
+  # docker-compose build app-base
+  conference:
+    container_name: conference-dev
+    build:
+      dockerfile: Dockerfile.dev
+      context: .
+    image: rounds/conference-dev
+    volumes:
+      - ./app:/opt/app
+      - .:/opt/
+    volumes_from:
+      - geoip:ro
+    depends_on:
+      - geoip
+    ports:
+      - 5000
+    links:
+      - couchbase
+      - rabbit
+      - grpc-proxy
+    environment:
+      &app_env_vars
+      PYTHONPATH: '/opt'
+      APP_DEBUG: 'True'
+      APP_PORT: 5000
+      APP_NAME: 'rkik'
+      APP_GRPC_PROXY: 'grpc-proxy:8080'
+      APP_COUCHBASE_BUCKET: default
+      APP_COUCHBASE_CONFERENCES_BUCKET: conferences
+      APP_COUCHBASE_LOCKS_BUCKET: locks
+      APP_COUCHBASE_URLS: couchbase
+      APP_RABBIT_HOST: rabbit
+      APP_RABBIT_USER: user
+      APP_RABBIT_PASS: pass
+      APP_RABBIT_VHOST: /
+      APP_RABBIT_NUM_CONSUMERS: 20
+      APP_RABBIT_MEDIA_CB_QUEUE: media
+      APP_GEOIP_DB_PATH: /usr/local/share/GeoIP/GeoIPCity.dat
+      STATSD_HOST: localhost  # We don't have statsd container in dev...this acts as stub
+      STATSD_PORT: 8125
+
+  media-callbacks:
+    container_name: media-callbacks
+    build:
+      dockerfile: Dockerfile.dev
+      context: .
+    image: rounds/conference-dev
+    volumes:
+      - ./app:/opt/app
+      - .:/opt/
+    links:
+      - couchbase
+      - rabbit
+    command: /opt/media_queue_consumer.py
+    environment:
+      <<: *app_env_vars
+
+  geoip:
+    image: rounds/geoip-downloader
+    volumes:
+      - /usr/local/share/GeoIP
+
+  # used for running tests against app
+  test:
+    # requires rounds/conference-dev image to be built first
+    build:
+      dockerfile: Dockerfile.dev
+      context: .
+    image: rounds/conference-dev
+    command: /tmp/test.sh
+    volumes:
+      - ./app:/opt/app
+      - .:/opt/
+    volumes_from:
+        - geoip:ro
+    depends_on:
+      - geoip
+    links:
+      - conference
+    environment:
+      APP_TEST_ADDRESS: conference:5000
+      <<: *app_env_vars
+
+  grpc-proxy:
+    image: rounds/kik-grpc-proxy
+    ports:
+      - "8080"
+    links:
+       - couchbase
+       - kik-mock
+    environment:
+      LOG_LEVEL: warn
+      PORT: 8080
+      URLS: couchbase
+      CB_BUCKET_NAME: conferences
+      TARGET: kik-mock:50051
+
+  kik-mock:
+    build: tests/grpc_server/
+    ports:
+      - "50051"
+    volumes:
+      - ./tests/grpc_server/:/opt/app
+
+  couchbase:
+    image: couchbase:4.5.0
+    ports:
+      - 8091
+    # override 2500 limitation on editing docs via the ui - and start couchbase
+    command: bash -c "sed -i -- 's/ 2500/ 250000/g' /opt/couchbase/lib/ns_server/erlang/lib/ns_server/priv/public/js/documents.js && /usr/sbin/runsvdir-start"
+
+  init-couchbase:
+    image: couchbase:4.5.0
+    links:
+      - couchbase
+    working_dir: /tmp
+    volumes:
+      - ./image/database/couchbase:/tmp
+    command: /tmp/scripts/init_couchbase_image.sh couchbase_buckets
+
+  rabbit:
+    image: rabbitmq:management
+    container_name: rabbit
+    hostname: rabbit
+    environment:
+      - RABBITMQ_DEFAULT_USER=user
+      - RABBITMQ_DEFAULT_PASS=pass
+    ports:
+      - 25672:15672
+
+  init-balancer-data:
+    image: rounds/conference-dev
+    links:
+      - couchbase
+    command: python /opt/cb/init_balancing_data.py
+    volumes:
+      - ./app:/opt/app
+      - .:/opt/
+      - ./image/database/couchbase:/opt/cb
+      - ./image/dev/:/opt/image
+    environment:
+      <<: *app_env_vars

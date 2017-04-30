@@ -1,0 +1,53 @@
+import os
+import boto3
+
+
+def handle(event, context):
+    bucket = event["Records"][0]["s3"]["bucket"]["name"]
+    key = event["Records"][0]["s3"]["object"]["key"]
+    index_bucket= '%s-%s' % (bucket, os.environ['INDEX_BUCKET_SUFFIX'])
+    conf_index_key = get_conference_index_key(key)
+    create_s3_object(conf_index_key, index_bucket, None)
+
+def create_s3_object(key, bucket, body):
+    client = boto3.client("s3")
+    client.put_object(
+                ACL='public-read',
+                Bucket=bucket,
+                Key=key,
+                Body=body
+                )
+
+
+
+def get_conference_index_key(key):
+    data = parse_key(key)
+    return '%s/%s/%s/%s--%s--%s--%s' % (data.conference_id, data.device_id, data.date, data.app_name, data.media_server, data.tag, data.time)
+
+def parse_key(key):
+    file_data = key.split('/')
+    meta_atts = file_name_to_obj(file_data[3])
+    return {
+        'conference_id': meta_atts['conference_id'],
+        'date': file_data[0],
+        'media_server': meta_atts['media_server'],
+        'time': meta_atts['time'],
+        'tag': meta_atts['tag'],
+        'app_name': file_data[2],
+        'device_id': file_data[1],
+    }
+
+
+# File format: conference_id--server_fqdn--version-tag--time.zip
+# e.g. rkik.PG1dO0tS3X2lUsGJ.YEn1--media-server-138-197-130-97.rounds.video--11.1.0----041936.zip
+def file_name_to_obj(file_name):
+    file_atts = file_name.split('--')
+    timestamp = file_atts[4]
+    return {
+        'conference_id': file_atts[0],
+        'media_server': file_atts[1],
+        'client_version': file_atts[2],
+        'tag': file_atts[3],
+        'time': "%s:%s:%s" % (timestamp[:2], timestamp[2:4], timestamp[4:6])
+    }
+

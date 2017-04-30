@@ -1,0 +1,25 @@
+[alias]
+	co = commit
+	ch = checkout
+	pl = pull
+	st = status
+	br = branch
+[user]
+	name = Lior Aviram
+	email = lior.aviram@gmail.com
+[push]
+	default = simple
+[core]
+    editor = vim
+[diff]
+    tool = bc3
+	external = /home/lior/bin/meldDiff.sh
+[difftool]
+    bc3 = trustExitCode
+    prompt = false
+[merge]
+    tool = bc3
+[mergetool]
+	bc3 = trustExitCode
+    prompt=false
+	keepBackup = false

@@ -1,0 +1,181 @@
+#include "mq_connection.h"
+#include <amqp_tcp_socket.h>
+#include <iostream>
+#include <sstream>
+
+using namespace std;
+using namespace mq;
+int HEARTBEAT = 28;  // in seconds. LB timeout is 60 seconds, so we should use a
+                     // value that is less than half
+
+// private utils
+
+void raiseOnError(int x, char const* context) {
+    if (x < 0) {
+        throw MQException(amqp_error_string2(-x), x);
+    }
+}
+
+void raiseOnAMQPError(amqp_rpc_reply_t x, char const* context) {
+    stringstream error_str;
+    int code = 0;
+    error_str << "amqp error: ";
+
+    switch (x.reply_type) {
+        case AMQP_RESPONSE_NORMAL:
+            return;
+
+        case AMQP_RESPONSE_NONE:
+            error_str << context << ": missing RPC reply type!";
+            break;
+
+        case AMQP_RESPONSE_LIBRARY_EXCEPTION:
+            error_str << context << ": " << amqp_error_string2(x.library_error);
+            code = x.library_error;
+            break;
+
+        case AMQP_RESPONSE_SERVER_EXCEPTION:
+            switch (x.reply.id) {
+                case AMQP_CONNECTION_CLOSE_METHOD: {
+                    amqp_connection_close_t* m =
+                        (amqp_connection_close_t*)x.reply.decoded;
+                    error_str
+                        << context << ": "
+                        << "server connection error " << m->reply_code
+                        << ", message: " << string((char*)m->reply_text.bytes,
+                                                   (int)m->reply_text.len);
+                    code = m->reply_code;
+                    break;
+                }
+                case AMQP_CHANNEL_CLOSE_METHOD: {
+                    amqp_channel_close_t* m =
+                        (amqp_channel_close_t*)x.reply.decoded;
+                    error_str
+                        << context << ": "
+                        << "server channel error " << m->reply_code
+                        << ", message: " << string((char*)m->reply_text.bytes,
+                                                   (int)m->reply_text.len);
+                    code = m->reply_code;
+                    break;
+                }
+                default:
+                    error_str << context << ": unknown server error, method id "
+                              << x.reply.id;
+                    break;
+            }
+            break;
+    }
+    throw MQException(error_str.str(), code);
+}
+
+// MQException
+
+MQException::MQException(const string& msg) : _msg(msg), _code(0) {}
+MQException::MQException(const string& msg, int code)
+    : _msg(msg), _code(code) {}
+MQException::~MQException() throw() {}
+const char* MQException::what() const throw() {
+    stringstream ss;
+    ss << _msg << " (code " << _code << ")";
+    string s = ss.str();
+    return s.c_str();
+}
+
+// Connection
+
+Connection::Connection(string hostname, string vhost, int port, string username,
+                       string password) {
+    struct timeval timeout = {1, 500000};
+    conn = amqp_new_connection();
+
+    amqp_socket_t* socket = amqp_tcp_socket_new(conn);
+    if (!socket) {
+        throw MQException("creating TCP socket");
+    }
+    if (amqp_socket_open_noblock(socket, hostname.c_str(), port, &timeout)) {
+        throw MQException("opening TCP socket");
+    }
+
+    raiseOnAMQPError(
+        amqp_login(conn, vhost.c_str(), 0, 131072, HEARTBEAT,
+                   AMQP_SASL_METHOD_PLAIN, username.c_str(), password.c_str()),
+        "logging in");
+    amqp_channel_open(conn, 1);
+    raiseOnAMQPError(amqp_get_rpc_reply(conn), "opening channel");
+
+    amqp_confirm_select(conn, 1);
+}
+
+void Connection::sendMessage(string message, string exchange, string rkey) {
+    raiseOnError(
+        amqp_basic_publish(conn,                                  // state
+                           1,                                     // channel
+                           amqp_cstring_bytes(exchange.c_str()),  // exchange
+                           amqp_cstring_bytes(rkey.c_str()),      // routing_key
+                           0,                                     // mandatory
+                           0,                                     // immediate
+                           NULL,                                  // properties
+                           amqp_cstring_bytes(message.c_str())),  // body
+        "publishing");
+
+    amqp_frame_t frame;
+    raiseOnError(amqp_simple_wait_frame(conn, &frame), "missing confirmation");
+    // XXX when there is an error I can inspect frame
+}
+
+Connection::~Connection() {
+    // destruction can't fail so we catch here all exceptions and print them out
+    try {
+        raiseOnAMQPError(amqp_channel_close(conn, 1, AMQP_REPLY_SUCCESS),
+                         "closing channel");
+    } catch (const MQException& e) {
+        cerr << "failed closing channel " << e.what() << endl;
+    }
+    try {
+        raiseOnAMQPError(amqp_connection_close(conn, AMQP_REPLY_SUCCESS),
+                         "closing connection");
+    } catch (const MQException& e) {
+        cerr << "failed closing connection " << e.what() << endl;
+    }
+    try {
+        raiseOnError(amqp_destroy_connection(conn), "ending connection");
+    } catch (const MQException& e) {
+        cerr << "failed ending connenction " << e.what() << endl;
+    }
+}
+
+Pool& Pool::instance() {
+    static Pool inst;
+    return inst;
+}
+
+Pool::Pool() {}
+
+Pool::~Pool() {
+    for (int i = 0; i < _pool.size(); i++) {
+        delete _pool[i];
+    }
+}
+
+void Pool::init(string hostname, string vhost, int port, string username,
+                string password, int poolSize) {
+    _hostname = hostname;
+    _vhost = vhost;
+    _port = port;
+    _username = username;
+    _password = password;
+    _pool.resize(poolSize);
+    for (int i = 0; i < _pool.size(); i++) {
+        _pool[i] = new Connection(hostname, vhost, port, username, password);
+    }
+}
+
+Connection* Pool::connection() {
+    // XXX implement finding an unused connection
+    return new Connection(_hostname, _vhost, _port, _username, _password);
+}
+
+void Pool::freeConnection(Connection* conn) {
+    // XXX find the connection in the list and mark it as usable
+    delete conn;
+}

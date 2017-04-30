@@ -1,0 +1,9 @@
+#!/bin/bash
+EJABBERD_SERVERS=( "54.162.144.111" "54.162.47.205" )
+
+CMD="tmux-cssh -c ~/.ssh/dimadio"
+for line in "${EJABBERD_SERVERS[@]}"
+do
+    CMD="${CMD} -sc ec2-user@${line}"
+done
+$CMD

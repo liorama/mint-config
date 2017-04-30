@@ -1,0 +1,104 @@
+# This script is run by Travis-CI when the code is pushed to github
+
+# This run the Alpha KVM system - need to be turned on by support per repository.
+# The KVM system has docker inside..
+# https://github.com/travis-ci/docs-travis-ci-com/blob/sw-docker/user/docker.md
+dist: trusty
+
+sudo: required
+
+services:
+  - docker
+
+env:
+  global:
+    - BAKE_BRANCH=bake
+
+    - MEDIA_SERVER_DIR="mobile_docker"
+    - S3_UPLOAD_BUCKET="deployment-binaries-rkik"
+    - S3_UPLOAD_DIRECTORY="media-server"
+
+    - SLACK_TOKEN="rounds:cA5yfeH0FuKvP9J8FOgCw0Fh"
+
+    # AWS
+    - AWS_KEY_ID="AKIAJURDYK7HZA7NROBQ"
+
+    - DOCKER_CACHE_FILE=/home/travis/docker/cache.tar.gz
+    - DOCKER_IMAGES=rounds/media-server-builder
+
+    - DOCKER_VERSION=1.11.1
+    - DOCKER_COMPOSE_VERSION=1.7.1
+    - ANSIBLE_VERSION=2.0.2.0
+    - PACKER_VERSION=0.11.0
+
+
+# Generic languge, not much extras
+language: c
+
+# Cache between builds
+cache:
+  pip: true
+  apt: true
+  directories:
+    - $(dirname ${DOCKER_CACHE_FILE})
+
+matrix:
+# When the first fails it all fails
+  fast_finish: true
+
+before_install:
+  # latest docker
+  - sudo sh -c 'echo "deb https://apt.dockerproject.org/repo ubuntu-trusty main" > /etc/apt/sources.list.d/docker.list'
+  - sudo apt-key adv --keyserver hkp://p80.pool.sks-keyservers.net:80 --recv-keys 58118E89F3A912897C070ADBF76221572C52609D
+  - sudo apt-get -y update
+  # - sudo apt-get -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" install docker-engine=$DOCKER_VERSION-0~trusty
+  - docker version
+
+  # latest docker-compose
+  - sudo rm /usr/local/bin/docker-compose
+  - wget -qO docker-compose https://github.com/docker/compose/releases/download/$DOCKER_COMPOSE_VERSION/docker-compose-`uname -s`-`uname -m`
+  - chmod +x docker-compose
+  - sudo mv docker-compose /usr/local/bin
+  - docker-compose version
+
+    #  # download ansible for packer
+    #  - pip install ansible==${ANSIBLE_VERSION}
+    #
+    #  # download packer
+    #  - wget -qO packer.zip https://releases.hashicorp.com/packer/${PACKER_VERSION}/packer_${PACKER_VERSION}_linux_amd64.zip
+    #  - unzip packer.zip
+    #  - sudo mv packer /usr/local/bin/packer
+    #  - sudo chmod +x /usr/local/bin/packer
+
+  - if [ -f ${DOCKER_CACHE_FILE} ]; then gunzip -c ${DOCKER_CACHE_FILE} | docker load; fi
+
+script:
+  - make
+    # save docker cache on branch master
+    # - if [[ ${TRAVIS_BRANCH} == "master"  ]] && [[ ${TRAVIS_PULL_REQUEST} == "false" ]]; then mkdir -p $(dirname ${DOCKER_CACHE_FILE}) ; docker save rounds/media-server-builder | gzip > ${DOCKER_CACHE_FILE}; fi
+  - mkdir -p $(dirname ${DOCKER_CACHE_FILE}) ; docker save $(echo ${DOCKER_IMAGES}) | gzip > ${DOCKER_CACHE_FILE}
+
+before_deploy:
+  - mkdir upload
+  - mv $MEDIA_SERVER_DIR/media-server upload/media-server-$(echo $TRAVIS_COMMIT | head -c7)
+
+notifications:
+  email: false
+  slack: $SLACK_TOKEN
+
+after_success:
+ - if [ "$TRAVIS_BRANCH" == "$BAKE_BRANCH" ]; then make git_revision=${TRAVIS_COMMIT} bake; fi
+
+# upload binary
+deploy:
+  on:
+    branch: master
+  provider: s3
+  bucket: "$S3_UPLOAD_BUCKET"
+  secret_access_key:
+    secure: Sphz/5HKY7pxL+dDl47t7SSi4mYWPUHtFMOfCZw2ntRM196OdHj2ReCB85bxFi+kwYcmuGwzT+ugP1LfRClJ93y9HGVXulpCIsOk2IQOU5VV7kiKBN/Aqcx4M+OFwIeVmoTUgYWkxKy6Z9b8GByqRw5Z2rUF/LHMVjTQB57CEuhXYoUPhkpv02l1B1RkuoYiOg7z4/17AlL2I8IGeVOxWlVHqWVvScbksivndvenE0w2v11e33OsYgepLJ3Poh6x8hHCwhOoi50tbvhgpT/Mz+KllVHP6Fe+OIVcFCCl82niSJSN7mHMOQO4dA7UGbtObTAuUoTm7rt6KBrOOUltHyaBDcQ0cEJNIavTdtfbx/M10iv+LG2OdC5IEQJtqh162C9khUCFVomahW25ruDFL2XA1pLkVFPmWMdDIg48Vyoj8b2f6Nzb9A5eiL76nY8dRPRkw1bKtNf4bGPpyLZ/ct2r2LVdgkrSEMLllImDMNM8IVXgZH4HYd0kf5hr7HddvuGViyrNKsgamZ/tOcGMu/GKhGIOlSyf5gwXn3sFZQkQ1Q32WTyNxO2sux50SjRSCLTdB7Zvrt74PQT7rz4aNdnzTmYgljNgPdlStz1LiCpVgjp8T66ymamwK1VU2YpwX7mxzqhHdAnHq6h56lnmcyUA27XmBzUyq95QUWD7Q9c=
+  access_key_id: "$AWS_KEY_ID"
+  local_dir: "upload"
+  skip_cleanup: true
+  acl: public_read
+  upload-dir: "$S3_UPLOAD_DIRECTORY"

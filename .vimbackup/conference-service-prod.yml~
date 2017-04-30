@@ -1,0 +1,26 @@
+conference:
+  debug: False
+
+  app_port: 5000
+
+  grpc_proxy: localhost:8080
+
+  couchbase_bucket: default
+  couchbase_conferences_bucket: conferences
+  couchbase_urls: 'couchbase-1.rkik.prod,couchbase-2.rkik.prod,couchbase-3.rkik.prod'
+
+  geoip_db_path: /usr/local/share/GeoIP/GeoIPCity.dat
+
+  rabbit_admin_user: rkik
+  rabbit_admin_password: bewItCoaphPaugs2
+
+  rabbit_media_host: rabbitmq.rkik.prod
+  rabbit_media_user: conference-service
+  rabbit_media_password: NgopUUonPEVHg5lv1UoESbDlSPwuiHJi
+  rabbit_media_vhost: '/'
+  rabbit_media_cb_queue: media
+
+  statsd_host: localhost
+  statsd_port: 8125
+
+elb_name: ["conference-prod"]

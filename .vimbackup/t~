@@ -1,0 +1,20 @@
+#!/bin/bash
+IP="2.3.43.4"
+
+f(){
+ echo "{
+  "event_names": [{
+    "type": {
+      "group_name": "rkik",
+      "group_version": "1",
+      "event_name": "connectivity_native_client_join_conference_attempt"
+    },
+    "payload": {
+    ip: $1
+    }
+    }]
+}"
+}
+echo $(f 23)
+
+

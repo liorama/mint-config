@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html class="fullscreen">
+	<head lang="en">
+		<meta charset="UTF-8">
+		<title></title>
+	</head>
+	<body class="fullscreen">
+		<a class="fullscreen" href="blog/rounds-joins-kik/">
+			<img class="bg" class="bg"
+			     src="rounds_joinging_kik_bg.png"/>
+		</a>
+	</body>
+</html>
+<style>
+	.fullscreen {
+		width: 100%;
+		height: 100%;
+	}
+	.bg {
+		position: fixed;
+		top: 0;
+		left: 0;
+
+		/* Preserve aspet ratio */
+		min-width: 100%;
+		min-height: 100%;
+	}
+</style>

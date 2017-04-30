@@ -1,0 +1,206 @@
+#!/usr/bin/python
+
+from subprocess import call, Popen, PIPE
+from os import listdir, remove, mkdir
+from os.path import dirname, join, exists, abspath, isfile, isdir
+from shutil import rmtree, copytree
+from cjson import decode, encode
+from sys import argv, exit
+import re
+import getopt
+import requests
+
+###
+# Params:
+# -t  Notifies the batman instance at office2.gixoo.com
+# -s  Notifies the batman instance at batman.stage.rounds.com
+# -n DOMAIN  Notifies the batman instance at DOMAIN
+# --emulator-dir=PATH  Retrieves wasabi sources from specified PATH instead of from wasabi's SVN repo
+# --dev  Doesn't minify the files
+###
+DEPENDENCY_KEY = "minimum_rounds_client_versions:"
+
+args, remainder = getopt.getopt(argv[1:], 'tsv:n:', ["emulator-dir=", "dev"])
+useEmulatorDir = False
+notifyServer = False
+version = False
+specialMessage = False
+dev = False
+svnRoot = 'http://svn.gixoo/rounds2'
+
+for opt, arg in args:
+    if opt == '--emulator-dir':
+        useEmulatorDir = arg
+    if opt == '-t':
+        notifyServer = 'http://office2.gixoo.com/wasabi/update-version'
+    if opt == '-n':
+        notifyServer = "%s/wasabi/update-version" % arg
+        specialMessage = "---Remember to add the updated versions.json to the batman files that will be uploaded to production---"
+    if opt == '-s':
+        notifyServer = 'http://stage.rounds.com/wasabi/update-version'
+        svnRoot = "http://svn.rounds.com/repos/rounds2"
+        specialMessage = "---Remember to add updated versions.json to the batman files that will be uploaded to production---"
+    if opt == '-v':
+        version = arg
+    if opt == "--dev":
+        dev = True
+
+# if not version:
+#	exit(1)
+
+
+def getFileContent(path):
+    file = open(path, "r")
+    content = file.read()
+    file.close()
+    return content
+
+
+def getJsonFileContent(path):
+    content = getFileContent(path)
+    json = decode(content)
+    return json
+
+
+class Library(object):
+    def __init__(self, name):
+        self.content = ""
+        self.name = name
+
+    def concatenate(self, path):
+        if exists(path):
+            self.content += "### \n ------- Begining of file: %s -------- ### \n" % path
+            self.content += getFileContent(path) + "\n"
+            self.content += "### \n -- End of file: %s -- ### \n" % path
+            print ('Adding %s to %s' % (path, self.name))
+
+    def compile(self):
+        path = join(scriptsBinDirectory,
+                    "wasabi.%s.%s.js" % (self.name, version))
+        self.compiled_path = path
+        print ('Writing %s' % path)
+        tmp = open(path, "w")
+        tmp.write(self.content)
+        tmp.close()
+        map = ""
+        if dev:
+            map = "--map"
+        call(["coffee", "-c", "-o", scriptsBinDirectory, path])
+
+    #remove(path)
+
+    def mergeLib(self, path):
+        content = getFileContent(path)
+        jsFilePath = join(scriptsBinDirectory,
+                          "wasabi.%s.%s.js" % (self.name, version))
+        jsFile = open(jsFilePath, "r+")
+        content += jsFile.read()
+        jsFile.seek(0, 0)
+        jsFile.write(content)
+        print('Adding library %s to %s' % (path, jsFilePath))
+        jsFile.close()
+
+    def minify(self):
+        path = join(scriptsBinDirectory,
+                    "wasabi.%s.%s.js" % (self.name, version))
+        call(["uglifyjs", "--unsafe", "-nc", "-o", path, path])
+
+    def getContent(self):
+        return self.content
+
+
+rootDirectory = dirname(dirname(abspath(__file__)))
+scriptsDirectory = join(rootDirectory, "scripts")
+scriptsSrcDirectory = join(scriptsDirectory, "src")
+scriptsBinDirectory = join(scriptsDirectory, "wasabi.bin")
+if not exists(scriptsBinDirectory):
+    mkdir(scriptsBinDirectory)
+manifest = getJsonFileContent(join(scriptsDirectory, "wasabi.manifest.json"))
+ios = Library("ios")
+android = Library("android")
+
+emulatorDir = scriptsSrcDirectory + '/mobile/emulator'
+if exists(emulatorDir):
+    rmtree(emulatorDir)
+if useEmulatorDir:
+    print 'Copying emulator files from: %s' % useEmulatorDir
+    copytree(useEmulatorDir, emulatorDir)
+else:
+    print ('Updating emulator files from trunk')
+    mkdir(emulatorDir)
+    call(
+        ['svn', 'co', '%s/developers/trunk/emulator/js' % svnRoot, emulatorDir])
+emulator = Library("emulator")
+
+for coffeeFile in manifest['compile']['core']:
+    coffeeFile = join(scriptsSrcDirectory, "%s.coffee" % coffeeFile)
+    ios.concatenate(coffeeFile)
+    android.concatenate(coffeeFile)
+    emulator.concatenate(coffeeFile)
+
+for coffeeFile in manifest['compile']['ios']:
+    coffeeFile = join(scriptsSrcDirectory, "%s.coffee" % coffeeFile)
+    ios.concatenate(coffeeFile)
+
+for coffeeFile in manifest['compile']['android']:
+    coffeeFile = join(scriptsSrcDirectory, "%s.coffee" % coffeeFile)
+    android.concatenate(coffeeFile)
+
+for coffeeFile in manifest['compile']['emulator']:
+    coffeeFile = join(scriptsSrcDirectory, "%s.coffee" % coffeeFile)
+    emulator.concatenate(coffeeFile)
+
+if not version:
+    grep = Popen(['grep -m 1 "version:"'], stdin=PIPE, stdout=PIPE, shell=True)
+    grepResult = grep.communicate(input=ios.getContent())[0]
+    RegExResult = re.search('\d+(?:\.[\d]+)*', grepResult)
+    if RegExResult is None:
+        print ("No version given or could be detected")
+        exit(1)
+    version = RegExResult.group(0)
+    print "Detected version: %s" % version
+
+ios.compile()
+android.compile()
+emulator.compile()
+
+for libFile in manifest['merge']:
+    ios.mergeLib(join(scriptsDirectory, libFile))
+    android.mergeLib(join(scriptsDirectory, libFile))
+    emulator.mergeLib(join(scriptsDirectory, libFile))
+
+args = argv.pop()
+
+if not dev:
+    print ('Minifying JSs')
+    ios.minify()
+    android.minify()
+    emulator.minify()
+
+print ('Cleaning Up...')
+rmtree(emulatorDir)
+
+if notifyServer:
+    testFile = open(ios.compiled_path, "r")
+    fileLines = ios.getContent().splitlines(True)
+    testFile.close()
+    minimum_client_versions = {}
+    for index, line in enumerate(fileLines): # Go through the lines and look for the key, if found the the next 3 lines, wrap in {} and decode to json
+        if DEPENDENCY_KEY in line:
+            neededLines = fileLines[index:index + 4]
+            minimum_client_versions = ",".join(neededLines)[
+                                      len(DEPENDENCY_KEY) + 5:-2]
+            minimum_client_versions = "{%s}" % minimum_client_versions
+            minimum_client_versions = decode(minimum_client_versions)
+            break
+    notifyServer = '%s/%s/' % (notifyServer, version)
+    params = ''
+    print 'Notifying server with url: %s' % (notifyServer)
+    print("minimum_client_versions: " + encode(minimum_client_versions))
+    response = requests.post(notifyServer, minimum_client_versions)
+    print("Server returned: %s" % response.text)
+
+print 'Done'
+if specialMessage:
+    print specialMessage
+

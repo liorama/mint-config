@@ -1,0 +1,27 @@
+# TODO consider using upstream keepalive to keep aws connection open
+location ~* ^/v2/upload/debug$ {
+  # allow only HTTP POST requests
+  if ($request_method != POST) { return 404; }
+  # api version
+  if ($http_x_rounds_version != 2.0) { return 400; }
+  # allow only zipped bodies
+  if ($http_content_type != application/zip) { return 400; }
+  # require the following headers
+  if ($http_x_rounds_app_name = "") { return 400; }
+  if ($http_x_rounds_app_version = "") { return 400; }
+  if ($http_x_rounds_device_id = "") { return 400; }
+  if ($http_x_rounds_conference_id = "") { return 400; }
+  if ($http_x_rounds_media_server_name = "") { return 400; }
+
+  client_max_body_size 512k;
+
+  uninitialized_variable_warn off;  # disable warning when using set_local_today
+  set_local_today $today;
+  set_formatted_gmt_time $timestr "%H%M%S";
+  # upload location
+  set $key $today/$http_x_rounds_device_id/$http_x_rounds_app_name/$http_x_rounds_conference_id--$http_x_rounds_media_server_name--$http_x_rounds_app_version--$http_x_rounds_tag_string--$timestr.zip;
+
+  include sites-enabled/conf/rounds.com;
+}
+
+# vim:filetype=nginx

@@ -1,0 +1,8 @@
+---
+target_name: Website (production)
+git_revision: master
+website_env: prod
+
+upstrean_batman: "127.0.0.1:8080"
+upstream_nodejs: "nodejs.rounds.com:5000"
+upstream_new_wordpress: "wordpress.rounds.com:80"

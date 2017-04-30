@@ -1,0 +1,171 @@
+from unit_tests import BaseTestCase
+import mock
+import random
+from datetime import datetime, timedelta
+
+from multi.adapters import get_participated_with
+from vidyo.adapters import Participant
+from ricapi.init_db import Session
+from vidyo import adapters
+from vidyo.models import Conference, RVidyoServer
+from vidyo.store_qos_stats import OLD_CONFERENCE_TTL_SECONDS, close_old_conferences
+from ricapi_mocks import create_client
+
+_closed_ids = []
+_close_message_sent_ids = []
+
+class MockVidyoServer(object):
+    def close_conference(self, cid, uri, server, reason):
+        _close_message_sent_ids.append(cid)
+
+class MockConference(adapters.Conference):
+    def close(self, *args, **kwargs):
+        _closed_ids.append(self._conference.id)
+
+
+def rand_id():
+    """return a random id for the conference"""
+    return random.randint(1, 2**32-1)
+
+
+class ConferenceTest(BaseTestCase):
+
+    def setUp(self):
+        BaseTestCase.setUp(self)
+        mock.patch('vidyo.adapters.Conference', new=MockConference).start()
+
+    def test_remove_user(self):
+        vidyo_server = Session.query(RVidyoServer).first()
+        conf = Conference.create_conference(rand_id(), vidyo_server)
+        p1 = conf.add_confer(1)
+        user, device = create_client()
+        inviter = Participant(user.id, device.device_id)
+        user, device = create_client()
+        invitee = Participant(user.id, device.device_id)
+        conf.create_invitation(inviter, invitee, 1)
+
+        conf.save()
+        self.assertEqual(len(conf.get_confers()), 1)
+        conf.remove_confer(p1)
+        self.assertEqual(len(conf.get_confers()), 0)
+
+        conf.close()
+
+
+    def test_cant_get_closed_conference(self):
+        vidyo_server = Session.query(RVidyoServer).first()
+        conf = Conference.create_conference(rand_id(), vidyo_server)
+        user, device = create_client()
+        inviter = Participant(user.id, device.device_id)
+        user, device = create_client()
+        invitee = Participant(user.id, device.device_id)
+
+        conf.create_invitation(inviter, invitee, 1)
+        conf.save()
+        # should not raise
+        Conference.get(conf.id)
+
+        conf.close()
+
+        self.assertRaises(Exception, Conference.get, (conf.id))
+
+    def test_close_old_confernces(self):
+        vidyo_server = Session.query(RVidyoServer).first()
+        conference_ids = []
+        should_close = []
+        should_not_close = []
+        should_just_send_close_message = []
+
+        CONFERENCES_TO_CREATE = 30
+        # time between each start_date of a conference
+        delta = (
+            OLD_CONFERENCE_TTL_SECONDS / CONFERENCES_TO_CREATE * 2)
+
+        # create a range of conferences that part are old and/or active
+        for i in range(CONFERENCES_TO_CREATE):
+            conference_id = rand_id()
+            start_date = datetime.utcnow() - timedelta(
+                seconds=(OLD_CONFERENCE_TTL_SECONDS * 2 - delta * i))
+            # some conferences are active (have not ended):
+            c = Conference.create_conference(conference_id, vidyo_server)
+
+            user, device = create_client()
+            inviter = Participant(user.id, device.device_id)
+            user, device = create_client()
+            invitee = Participant(user.id, device.device_id)
+
+            c.create_invitation(inviter, invitee, 1)
+
+            c.start_date = start_date
+            c.save()
+
+            conference_ids.append(conference_id)
+
+            # if the conference is considered old it should be closed
+            if (c.start_date +
+                timedelta(seconds=OLD_CONFERENCE_TTL_SECONDS)
+                    < datetime.utcnow()):
+                # if the conference is still active, it should be closed
+                if c.active:
+                    should_close.append(conference_id)
+                # if conference is not active, the vidyo server should receive
+                # a close message
+                else:
+                    should_just_send_close_message.append(conference_id)
+            else:
+                should_not_close.append(conference_id)
+
+        close_old_conferences(conference_ids, vidyo_server.address)
+        # check that out of the conferences that were closed all the ones that
+        # should have been closed were closed.
+        self.assertEqual(
+            set(_closed_ids) & set(should_close), set(should_close))
+        self.assertEqual(
+            set(_close_message_sent_ids) & set(should_just_send_close_message),
+            set(should_just_send_close_message))
+        self.assertEqual(
+            len( (set(_closed_ids) | set(_close_message_sent_ids))
+                & set(should_not_close) ), 0)
+        for cid in conference_ids:
+            c.get(cid).close()
+
+    def test_participated_with(self):
+        data = {u'rvidyo_server_id': 39,
+                      u'num_members': 3,
+                      u'timestamp': u'2016-03-14T16:17:48.432236',
+                      u'uri': u'5783602602818027@rvidyo_198_11_192_101.kwakwa.com:50000',
+                      u'media_region': 4,
+                      u'rvidyo_address': u'198.11.192.101',
+                      u'media_region_name': u'USA_WEST',
+                      u'invitation': {u'inviter': {u'userid': 201436,
+                                                   u'device_id': u'9143558736'}},
+                      u'id': u'5783602602818027',
+                      u'participants': [{u'end_date': u'2016-03-14T16:17:52.088592',
+                                         u'userid': 239686,
+                                         u'start_date': u'2016-03-14T16:17:48.866514',
+                                         u'device_id': u'9577644850'},
+                                        {u'end_date': u'2016-03-14T16:18:19.910628',
+                                         u'userid': 239686,
+                                         u'start_date': u'2016-03-14T16:18:13.540721',
+                                         u'device_id': u'9577644850'},
+                                        {u'end_date': u'2016-03-14T16:18:23.408635',
+                                         u'userid': 201436,
+                                         u'start_date': u'2016-03-14T16:18:16.550831',
+                                         u'device_id': u'9143558736'},
+                                        {u'end_date': u'2016-03-14T16:18:58.596874',
+                                         u'userid': 201436,
+                                         u'start_date': u'2016-03-14T16:18:55.476549',
+                                         u'device_id': u'9143558736'}],
+                      u'group_id': u'565335828784981733',
+                      u'type': u'group',
+                      u'start_date': u'2016-03-14T16:17:48.432232'}
+        conference = Conference.parse(mock.Mock(value=data, cas=0))
+
+        participants = conference.get_confers(only_active=False)
+        last_participant_id = participants[-1].id
+        user_ids = get_participated_with(last_participant_id, participants)
+        self.assertEquals(set(user_ids), {201436})
+
+        participants = participants[:-1]
+        user_ids = get_participated_with(last_participant_id, participants)
+        self.assertEquals(set(user_ids), {201436, 239686})

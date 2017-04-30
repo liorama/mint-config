@@ -1,0 +1,9 @@
+log_s3_upload:
+  aws_access_key_id: AKIAJN63252PREXXWOUA
+  aws_secret_access_key: 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
+
+  s3_bucket_name: rkik-mobile-logs
+
+  # ec2 vpc resolve address
+  # FIXME this should be dynamic
+  nginx_resolver: 8.8.8.8

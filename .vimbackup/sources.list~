@@ -1,0 +1,3 @@
+#deb cdrom:[Linux Mint 17.1 _Rebecca_ - Release amd64 20141126]/ trusty contrib main non-free
+deb http://us.archive.ubuntu.com/ubuntu/ precise-updates main
+deb-src http://us.archive.ubuntu.com/ubuntu/ precise-updates main

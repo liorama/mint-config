@@ -1,0 +1,21 @@
+[program:rvidyo]
+command=/opt/rvidyo/rvidyo /opt/rvidyo/config
+directory=/opt/rvidyo
+autostart=true
+autorestart=true
+log_stdout=true
+log_stderr=true
+logfile_backups=3
+logfile=/var/log/rvidyo/daemon.log
+
+
+[program:socat]
+command=socat -d TCP6-LISTEN:50000,reuseaddr,fork,bind=[IPV6_ADDRESS] TCP4:IPV4_ADDRESS:50000
+autostart=true
+autorestart=true
+log_stdout=true
+log_stderr=true
+logfile_backups=1
+logfile=/var/log/%(program_name).log
+
+

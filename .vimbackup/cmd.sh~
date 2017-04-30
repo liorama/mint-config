@@ -1,0 +1,12 @@
+#!/bin/sh
+# process config templates and execute nginx
+
+set -e
+set -x
+
+for tmpl in $(find /etc/nginx -type f -name "*.tmpl"); do
+    dockerize -template $tmpl:${tmpl%%.tmpl} true
+    rm $tmpl
+done
+
+nginx

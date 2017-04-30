@@ -1,0 +1,93 @@
+  map $http_user_agent $ua_redirect {
+    default '';
+    ~*(iphone|ipad) /home-mobile?source=ios;
+    ~*(android) /home-mobile?source=android;
+  }
+
+  map $http_user_agent $ua_redirect_faq {
+     default '';
+        ~*(iphone|ipad) /faq/?source=ios;
+        ~*(android) /faq/?source=android;
+  }
+
+
+  map $http_user_agent $ua_redirect_product_hunt {
+     default '';
+        ~*(iphone|ipad) /home-mobile?source=ios&product-hunt=1;
+        ~*(android) /home-mobile?source=android&product-hunt=1;
+  }
+
+  server {
+    listen 80;
+
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+
+      location ~ ^/faq$ {
+               if ($ua_redirect_faq != '') {
+                 rewrite ^/faq$ $ua_redirect_faq redirect;
+               }
+               proxy_pass http://new_wordpress;
+               proxy_next_upstream error timeout invalid_header http_500 http_502 http_503 http_504;
+               proxy_redirect off;
+               proxy_buffering off;
+               chunked_transfer_encoding on;
+       }
+
+
+      location ~ ^/product-hunt {
+               if ($ua_redirect_product_hunt != '') {
+                 rewrite ^/product-hunt$ $ua_redirect_product_hunt redirect;
+               }
+               proxy_pass http://new_wordpress;
+               proxy_next_upstream error timeout invalid_header http_500 http_502 http_503 http_504;
+               proxy_redirect off;
+               proxy_buffering off;
+               chunked_transfer_encoding on;
+       }
+
+    location ~* ^/(booyah|wasabi|404/?|snapshot/\d+/?|timeline/moment/\d+/?|timeline/friend/\d+/?|valentines-day/?|mardi-gras/?|holiday/?|get-app/?|sms/\w+/?|sms/?|get-it/?|getnow/?|get-rounds/?|get/?|getitnow/?|getit/?|getapp/\w+/\w+/?|getapp/\w+/?|getapp/?|getios/\w+/?|getandroid/\w+/?|rounds-mobile-apps/?|rounds-android-app/?|rounds-iphone-app/?|mobilemediakit/?|web/?|jr/.+/?|robots.txt)$ {
+      proxy_pass http://batman;
+      proxy_next_upstream error timeout invalid_header http_500 http_502 http_503 http_504;
+      proxy_redirect off;
+      proxy_buffering off;
+      chunked_transfer_encoding on;
+    }
+
+    location ~* ^/(app/?|[a-z]/?|appstore/?|chatapp/?|download/?|free/?|freeapp/?|friendme/?|invite/?|invites/?|join-now/?|joinme/?|joinnow/?|link/?|mobile/?|mobile-app/?|rounds/?|textme/?|email_invite/?|eget/?|wget/?|sget/?|tget/?|e/\w+/?|s/\w+/?|w/\w+/?|t/\w+/?|f/\w+/?|fb/\w+/?|fp/\w+/?|fblogin/?|canvas/?|email_invites/?)$ {
+      proxy_pass http://batman;
+      proxy_next_upstream error timeout invalid_header http_500 http_502 http_503 http_504;
+      proxy_redirect off;
+      proxy_buffering off;
+      chunked_transfer_encoding on;
+    }
+
+    location ~* ^/(wasabi) {
+      proxy_pass http://batman;
+      proxy_next_upstream error timeout invalid_header http_500 http_502 http_503 http_504;
+      proxy_redirect off;
+      proxy_buffering off;
+      chunked_transfer_encoding on;
+    }
+
+    location / {
+      proxy_pass http://new_wordpress;
+      proxy_next_upstream error timeout invalid_header http_500 http_502 http_503 http_504;
+      proxy_redirect off;
+      proxy_buffering off;
+      chunked_transfer_encoding on;
+    }
+
+    location ~^/$ {
+      if ($ua_redirect != '') {
+        rewrite ^ $ua_redirect$request_uri? permanent;
+      }
+      proxy_pass http://new_wordpress;
+      proxy_next_upstream error timeout invalid_header http_500 http_502 http_503 http_504;
+      proxy_redirect off;
+      proxy_buffering off;
+      chunked_transfer_encoding on;
+    }
+  }
+

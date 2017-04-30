@@ -1,0 +1,11 @@
+#!/bin/sh
+
+GEOIP_CONF=./databases/GeoIP.conf
+
+mkdir -p /usr/local/share/GeoIP
+echo UserId ${MAXMIND_USER_ID:-103806} > $GEOIP_CONF
+echo LicenseKey ${MAXMIND_LICENSE:-oqBBNBg6bID3} >> $GEOIP_CONF
+# echo ProductIds ${MAXMIND_PRODUCTS:-GeoIP2-City GeoIP2-Country 106 133} >> $GEOIP_CONF # dont get everything
+echo ProductIds ${MAXMIND_PRODUCTS:-133} >> $GEOIP_CONF # just get City db
+
+geoipupdate -f $GEOIP_CONF $@

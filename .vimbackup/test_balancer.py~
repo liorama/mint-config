@@ -1,0 +1,23 @@
+import balancer
+from base_models import Geo
+import app
+import pdb; pdb.set_trace()
+
+
+app.init()
+balancer.init()
+location = Geo({ 'country_code': 'US' })
+non_valid_location = Geo({ 'country_code': 'US2345d' })
+
+def test_get_region_list(media_servers):
+    regions = balancer.get_country_region_list(location)
+    assert(isinstance(regions, list))
+    assert(regions[0] is 1)
+
+def test_get_host(media_servers):
+    host = balancer.get_host(location)
+    assert(isinstance(host, balancer.MediaServer))
+
+def test_non_valid_country(media_servers):
+    host = balancer.get_host(non_valid_location)
+    assert(isinstance(host, balancer.MediaServer))

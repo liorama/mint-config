@@ -1,0 +1,16 @@
+#!/bin/bash
+
+# requires tugboat ruby package.
+
+OLD_TMUX=$TMUX
+unset TMUX
+
+CMD="tmux-cssh -ns -ts $RANDOM -c ~/.ssh/ansible"
+
+while read line; do
+    CMD="$CMD $line"
+done < <(curl -sX GET -H 'Content-Type: application/json' -H 'Authorization: Bearer dce9abdcb03fa6b968a6eb75387243bbd35cb8b8b88d02e32b5643697e4dd44a' "https://api.digitalocean.com/v2/droplets"  | jq '.droplets[] | select(.name | contains("'$1'"))| .networks | select(.v4[0].type=="public") | .v4[0].ip_address' | awk {'print " -sc root@" $1'} | sed "s/\,//")
+echo $CMD
+$CMD
+
+TMUX=$OLD_TMUX

@@ -1,0 +1,19 @@
+{
+	"template": "rkik*",
+	"mappings": {
+		"_default_": {
+			"dynamic_templates": [
+				{
+					"media_server_geopoint": {
+						"path_match":   "media.location.location",
+						"mapping": {
+							"type":       "geo_point"
+						}
+					}
+				}
+			]
+		}
+	}
+}
+
+/* Set media server's location as Geo Point - template name: media_server_location*/

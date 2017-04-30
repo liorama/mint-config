@@ -1,0 +1,18 @@
+# script sould be sourced not executed
+if [[ $(basename -- "$0") = "setup.sh" ]]; then
+    echo "mmmm try sourcinge me...don't execute me"
+    exit 0
+fi
+
+baseDir=$(dirname $(pwd))
+
+appServer="$baseDir/booyah-app-server"
+read -ep "App server directory?"  -i "$appServer" appServer
+mediaUpload="$baseDir/media-upload"
+read -ep "App server directory?"  -i "$mediaUpload" mediaUpload
+mediaServer="$baseDir/media-server"
+read -ep "App server directory?"  -i "$mediaServer" mediaServer
+export COMPOSE_PROJECT_NAME=janus
+export BOOYAH_DIR=$appServer
+export MEDIA_UPLOAD_DIR=$mediaUpload
+export MEDIA_SERVER_DIR=$mediaServer

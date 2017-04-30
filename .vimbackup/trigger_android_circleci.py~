@@ -1,0 +1,31 @@
+import requests
+
+
+SLACK_TITLE = 'Triggered Circle CI build: %s'
+
+WARNING_COLOR = 'warning'
+ALLGOOD_COLOR = 'good'
+
+
+
+def post_to_slack(title, color, data=None):
+    payload = { 'attachments': [ {  'pretext': title, 'text': data, 'fallback': title, 'color': color } ]}
+    res = requests.post('https://hooks.slack.com/services/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', json=payload)
+    print "post to slack response code: %s response: %s" % (res.status_code, res.text)
+
+
+def run():
+    res = requests.post('https://circleci.com/api/v1.1/project/github/rounds/rkik.android/tree/daily_build_branch?circle-token=d4e963de9a2d4a158280971a31ffb13e30b2c921')
+
+    if not str(res.status_code).startswith("20") :
+        print "Circle ci error (%s), response %s" % (res.status_code, res.text)
+        post_to_slack(SLACK_TITLE % 'ERROR', WARNING_COLOR)
+        return
+
+    print "Circle ci trigger succeded"
+    json = res.json()
+    post_to_slack(SLACK_TITLE % '<https://circleci.com/gh/rounds/rkik.android/%s>|SUCCESS' % json['build_num'], ALLGOOD_COLOR, json)
+
+
+if __name__ == '__main__':
+    run()

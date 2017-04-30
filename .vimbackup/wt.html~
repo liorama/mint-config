@@ -1,0 +1,18 @@
+<html>
+	<head>
+    <!--<script src="http://www.rounds.com/wasabi/get-latest/wasabi.js"></script>-->
+    <script src="//ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js"></script>
+    <script type="text/javascript" >
+function height()
+{
+        console.log(document.body.clientHeight, "and with jquery", $(window).height());
+
+}
+document.addEventListener("DOMContentLoaded", height)
+    </script>
+
+	</head>
+
+	<body onload="height();" onrsize="height()">
+		<iframe width="560" height="315" src="https://www.youtube.com/embed/RrhnMbwR1xY?list=PL0-F7avcI2vBZvuwfimJU6g1GVSKZAQJP" frameborder="0" allowfullscreen></iframe>	</body>
+</html>

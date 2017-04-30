@@ -1,0 +1,52 @@
+jsonCallback(
+{
+redirectUrl: {
+Member Center: "https://developer.apple.com/membercenter/",
+iTunes Connect: "https://itunesconnect.apple.com/",
+Xcode Automatic Configuration: "https://developer.apple.com/xcode/",
+iOS Dev Center: "https://developer.apple.com/devcenter/ios",
+APNS: "https://developer.apple.com/notifications/",
+Pre-Release Documentation: "https://developer.apple.com/library/",
+Mac Dev Center: "https://developer.apple.com/devcenter/mac/",
+Apple Developer Forums: "https://forums.developer.apple.com",
+Safari Dev Center: "https://developer.apple.com/devcenter/safari/",
+Bug Reporter: "https://bugreport.apple.com/",
+Videos: "https://developer.apple.com/videos/",
+Technical Support: "https://developer.apple.com/membercenter/",
+Certificates, Identifiers & Profiles: "https://developer.apple.com/account/",
+TestFlight: null,
+News Publisher: null,
+Apple Pay: null,
+CloudKit Dashboard: "https://icloud.developer.apple.com/dashboard",
+APNS Sandbox: "https://developer.apple.com/notifications/",
+Software Downloads: "https://developer.apple.com/downloads/",
+Program Enrollment and Renewals: "https://developer.apple.com/membercenter/",
+iTunes Sandbox: null
+},
+dashboard: {
+Services: {
+APNS: [ true],
+APNS Sandbox: [ ],
+Apple Developer Forums: [ ],
+Apple Pay: [ ],
+Bug Reporter: [ ],
+Certificates, Identifiers & Profiles: [ ],
+CloudKit Dashboard: [ ],
+iTunes Connect: [ ],
+iTunes Sandbox: [ ],
+Member Center: [ ],
+News Publisher: [ ],
+Program Enrollment and Renewals: [ ],
+Software Downloads: [ ],
+Technical Support: [ ],
+TestFlight: [ ],
+Xcode Automatic Configuration: [ ]
+}
+},
+detailedTimeline: [ ]
+}
+)
+}
+}
+}
+})

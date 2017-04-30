@@ -1,0 +1,28 @@
+{
+	"template": "rkik*",
+	"mappings": {
+		"_default_": {
+			"dynamic_templates": [
+				{
+					"participants_as_nested": {
+						"path_match": "participants",
+						"mapping": {
+							"type": "nested"
+						}
+					}
+				},
+				{
+					"participants_geopoint": {
+						"path_match": "participants.geo.location",
+						"mapping": {
+							"type": "geo_point"
+						}
+					}
+				}
+			]
+		}
+	}
+}
+/* Set Participants as a nested object and their location as a geo point */
+
+

@@ -1,0 +1,32 @@
+- name: Stop rvidyo
+  supervisorctl: name={{ service_name }} state=stopped
+
+- name: Download rvidyo
+  get_url:
+    url=https://s3.amazonaws.com/deployment-binaries/rvidyo/rvidyo-{{git_revision}}
+    force=yes
+    dest=/opt/rvidyo/{{ service_name }}
+    mode=0770
+
+- name: Template the rvidyo config file
+  template: src=opt/rvidyo/config.j2 dest=/opt/{{ service_name }}/config
+
+- name: Copy credential files for TLS
+  copy: 
+    src={{item}}
+    dest=/etc/ssl/certs/
+  with_fileglob:
+    - etc/ssl/certs/*
+
+- name: Start rvidyo
+  supervisorctl: name={{ service_name }} state=started
+
+- wait_for: port={{ signaling_port }} host={{ ansible_default_ipv4.address }}
+- wait_for: port={{ signaling_port + 1 }} host={{ ansible_default_ipv4.address }}
+
+- name: Update ports in mysql
+  local_action: >
+    mysql --user="rounds" --password=""gfcdjhl" 
+    --host="ricapi-production.chw9e5vaf0ot.us-east-1.rds.amazonaws.com" 
+    --database="dbdating" 
+    --execute="update rvidyo_serves set port={{ signaling_port }}, tls_port={{ signaling_port + 1 }} where address={{ ansible_default_ipv4.address }};"

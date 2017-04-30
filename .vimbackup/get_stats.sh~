@@ -1,0 +1,33 @@
+#! /bin/sh
+#script to count current confs
+response=$(curl 0.0.0.0:49999/current-conferences -s)
+# Tests
+#response='{"media-server":[{"conference":{"joined":[{},{}]}}]}'
+#response='{"error": "invalid request", "status": 404}'
+#response='{"media-server":[{"conference":{}},{"conference":{}}]}'
+#response='{"media-server":[]}'
+#response='error'
+
+# Validation:
+# 1. Not a json, throw error
+# 2. rvidyo as root, any other message is error
+root_element=$( echo "${response}" | jq --raw-output 'keys[0]' 2>&1 )
+case $root_element in
+            *error*) printf '{"error": "1"}'; exit ;;
+esac
+
+confs_parts=$(echo "${response}" | jq '.["media-server"][].conference.joined|length')
+num_confs=$(echo "${confs_parts}" | grep -v '^$' -c)
+num_parts=$(echo "${confs_parts}" | awk '{s+=$1} END {print s}')
+real_confs_parts=$(echo "${confs_parts}" | awk '$1 > 1 { print $1 }')
+num_real_confs=$(echo "${real_confs_parts}" | grep -v '^$' -c)
+num_real_parts=$(echo "${real_confs_parts}"| awk '{s+=$1} END {print s}')
+num_real_streams=$(echo "${real_confs_parts}" | awk '{s+=$1*$1} END {print s}')
+current_bytes=$(($(cat /sys/class/net/eth0/statistics/tx_bytes)+$(cat /sys/class/net/eth0/statistics/rx_bytes)))
+sleep 1
+new_bytes=$(($(cat /sys/class/net/eth0/statistics/tx_bytes)+$(cat /sys/class/net/eth0/statistics/rx_bytes)))
+kbps=$(((new_bytes-current_bytes)*8/1024))
+
+ipv4_signaling_count=$(netstat -anp -4 | grep -v "socat" | grep -e "5000[0,1]" | grep EST | wc -l)
+ipv6_signaling_count=$(netstat -anp -6 | grep -e "5000[0,1]"  | grep EST | wc -l)
+printf '{"confs" : %d, "participants" : %d, "real_confs" : %d, "real_participants" : %d, "real_streams" : %d, "kbps" : %d, "signaling_count_ipv4": %d, "signaling_count_ipv6": %d}' "$num_confs" "$num_parts" "$num_real_confs" "$num_real_parts" "$num_real_streams" "$kbps" "ipv4_signaling_count" "ipv6_signaling_count"

@@ -1,0 +1,21 @@
+- include: anti-stun.yml
+- hosts: "{{ hosts | default('~skel-media-server-.+') }}"
+  remote_user: "{{ remote_user | default('root') }}"
+  roles:
+    - mobile-media-server
+  vars:
+    region_number:
+    stun_server: ""
+    service_name: "media-server"
+    git_revision: "70314dab2293e70346a0ef4ecb5f01d600e88d8a"
+    signaling_port: 50000
+    http_port: 49999
+    media_protocol: "udp"
+    ca_file: "comodo-rsa-domain-validation-sha-2-intermediates.ca-bundle"
+    cert_pub: "prarya.com.crt"
+    cert_priv: "prarya.com.key"
+
+    datadog_tags:
+      - "environment:prod"
+      - "application:media-server"
+      - "app_component:booyah"

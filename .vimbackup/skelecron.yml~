@@ -1,0 +1,10 @@
+- hosts: "{{ hosts | default('tag_type_skelecron') }}"
+  remote_user: "{{ remote_user | default('ubuntu') }}"
+  roles:
+    - rounds-common-roles
+    - monitoring/playbooks/roles/statsd-rounds-apps
+    - booyah/playbooks/roles/booyah-app-server
+    - skelecron
+  become: true
+  vars_files:
+    - vars/booyah-app-server-prod.yml

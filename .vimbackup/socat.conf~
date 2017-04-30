@@ -1,0 +1,9 @@
+[program:socat]
+command=socat -d TCP6-LISTEN:50000,reuseaddr,fork,bind=[{{ ansible_all_ipv4_addresses0 }}] TCP4:{{ ansible_all_ipv6_addresse }}:50000
+autostart=true
+autorestart=true
+log_stdout=true
+log_stderr=true
+logfile_backups=1
+logfile=/var/log/%(program_name).log
+

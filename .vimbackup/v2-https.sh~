@@ -1,0 +1,18 @@
+#!/bin/sh
+
+set -x
+set -e
+
+ADDRESS=${1:-localhost:8000}
+FILE=${2:-./test.zip}
+
+curl -kvX POST https://$ADDRESS/v2/upload/debug \
+    -H 'Content-Type: application/zip' \
+    -H 'X-Rounds-Version: 2.0' \
+    -H 'X-Rounds-App-Name: 111' \
+    -H 'X-Rounds-App-Version: 555' \
+    -H 'X-Rounds-Device-Id: 222' \
+    -H 'X-Rounds-Conference-Id: 333' \
+    -H 'X-Rounds-Media-Server-Name: 444' \
+    --data-binary @$FILE
+

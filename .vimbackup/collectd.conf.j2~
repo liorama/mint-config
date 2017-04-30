@@ -1,0 +1,28 @@
+LoadPlugin "logfile"
+LoadPlugin "network"
+LoadPlugin "cpu"
+LoadPlugin "memory"
+LoadPlugin "df"
+LoadPlugin "interface"
+LoadPlugin "load"
+LoadPlugin "tcpconns"
+LoadPlugin "exec"
+
+Hostname "{{ansible_default_ipv4['address']}}"
+
+<Plugin "tcpconns">
+  ListeningPorts false
+  LocalPort "50000"
+</Plugin>
+<Plugin exec>
+  Exec "netstatplugin:netstatplugin" "/etc/collectd.d/netstat_data.sh" "{{ansible_default_ipv4['address']}}"
+</Plugin>
+<Plugin "logfile">
+  LogLevel "info"
+  File "/var/log/collectd.log"
+  Timestamp true
+</Plugin>
+<Plugin "network">
+  Server "graphite.rounds.com"
+  Listen "127.0.0.1" "25826"
+</Plugin>

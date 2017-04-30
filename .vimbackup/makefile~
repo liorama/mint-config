@@ -1,0 +1,5 @@
+all:
+	cd mobile_docker && docker-compose run media-serverbuilder
+
+up:
+	cd mobile_docker && docker-compose up -d media-server

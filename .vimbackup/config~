@@ -1,0 +1,8 @@
+[default]
+output = json
+region = us-east-1
+
+[rounds]
+role_arn = arn:aws:iam::209686251660:role/Server
+source_profile = lior@kik.com
+region = us-east-1

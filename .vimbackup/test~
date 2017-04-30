@@ -1,0 +1,25 @@
+[{
+  "ModifyIndex": 7,
+    "CreateIndex": 4,
+      "TaggedAddresses": {
+          "wan": "172.18.0.4",
+              "lan": "172.18.0.4"
+                },
+                  "Address": "172.18.0.4",
+                    "Node": "consul-server"
+                    },
+                    {
+                      "ModifyIndex": 6,
+                        "CreateIndex": 5,
+                          "TaggedAddresses": {
+                              "wan": "172.18.0.5",
+                                  "lan": "172.18.0.5"
+                                    },
+                                      "Address": "172.18.0.5",
+                                        "Node": "rundeck"
+                                        }
+
+                          }
+                    }
+      }
+}]

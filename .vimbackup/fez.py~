@@ -1,0 +1,509 @@
+import json
+import socket
+import tempfile
+import arrow
+import prettytable
+import pygal
+from pygal.style import DarkSolarizedStyle
+import requests
+from requests.exceptions import HTTPError
+from errbot import BotPlugin, botcmd, arg_botcmd
+from errbot.backends.base import RoomOccupant
+
+POST = 'POST'
+GET = 'GET'
+PUT = 'PUT'
+PATCH = 'PATCH'
+DELETE = 'DELETE'
+
+
+class FezResultsError(Exception):
+    pass
+
+
+class Fez(BotPlugin):
+    """
+    Interface to Media Autoscaler Service - Fez
+    """
+    base = 'http://fez.rkik.prod'
+    msg = None
+
+    def _get_channel_id(self, message):
+        if message.is_group:
+            to_channel_id = message.to.id
+        else:
+            if isinstance(message.to, RoomOccupant):
+                to_channel_id = self.get_im_channel
+                (self._username_to_userid(message.to.username))
+            else:
+                to_channel_id = message.to.channelid
+        return to_channel_id
+
+
+    def _make_request(self, method, path, payload=None):
+        headers = {'content-type': 'application/json'}
+        try:
+            res = requests.request(
+                method, '%s/v1%s' %
+                (self.base, path), headers=headers, data=json.dumps(payload))
+            res.raise_for_status()
+        except HTTPError as e:
+            self._post_error('Error: {}'.format(e), str(e.response.text),
+                             self.msg)
+            return res
+        except requests.exceptions.RequestException as e:
+            self._post_error('Request Exception', 'Error: {}'.format(e),
+                             self.msg)
+            return None
+        return res
+
+    def _is_ip(self, address):
+        try:
+            socket.inet_aton(address)
+        except socket.error:
+            return False
+        return True
+
+    def _post_error(self, title, description, msg):
+        self.send_card(title=title, body=description, in_reply_to=msg,
+                       color='red')
+
+    def _post_table(self, table, recipient, title, sortby=None):
+        att = []
+        reply_items = [title]
+        reply_items.append('```\n%s\n```' % table.get_string(sortby=sortby))
+        reply = '\n'.join(reply_items)
+        att.append({
+            'fields': [{'value': reply}],
+            'color': 'good',
+            'mrkdwn_in': ['text', 'fields']
+        })
+        self._bot.sc.api_call(
+            'chat.postMessage',
+            channel=str(recipient),
+            unfurl_media='true',
+            as_user='true',
+            attachments=att,
+        )
+
+    def _t_or_f(self, arg):
+        upper_arg = str(arg).upper()
+        if 'TRUE'.startswith(upper_arg):
+            return True
+        return False
+
+    @arg_botcmd('--zone', type=str, default=None,
+                help='Show data for a specific zone\
+                Default to show all zones String')
+    @arg_botcmd('--graph', dest='graph', default=False,
+                help='Display a graph and a table.\
+                Default display only a table Bool')
+    def media_servers(self, msg, zone=None, graph=False):
+        self.msg = msg
+        bar_chart = pygal.Bar(style=DarkSolarizedStyle, width=800, height=600,
+                              legend_at_bottom=False, human_readable=False,
+                              title='Servers Status')
+        bar_chart.x_labels = 'Total', 'Up', 'Warmup', 'Backoff', 'Draining'
+        recipient = self._get_channel_id(msg)
+        table = prettytable.PrettyTable(
+            ['Name', 'Total', 'Up', 'Warmup', 'Backoff', 'Draining'])
+        table.align = 'c'
+        graphv = self._t_or_f(graph)
+        total = 0
+        total_up = 0
+        total_warmup = 0
+        total_backoff = 0
+        total_draining = 0
+        if graphv:
+            bar_chart = pygal.Bar(style=DarkSolarizedStyle,
+                                  width=800, height=600,
+                                  legend_at_bottom=False, human_readable=False,
+                                  title='Servers Status')
+            bar_chart.x_labels = 'Total', 'Up', 'Warmup', 'Backoff', 'Draining'
+        if zone is None:
+            res = self._make_request(GET, '/servers')
+            if res is None or res.status_code != 200:
+                return
+            for zname, zvalue in res.json()['servers'].items():
+                table.add_row((zname, zvalue['count'], zvalue['up'],
+                               zvalue['warmup'], zvalue['backoff'],
+                               zvalue['draining']),)
+                total = total + zvalue['count']
+                total_up = total_up + zvalue['up']
+                total_warmup = total_warmup + zvalue['warmup']
+                total_backoff = total_backoff + zvalue['backoff']
+                total_draining = total_draining + zvalue['draining']
+                if graphv:
+                    bar_chart.add(zname, [zvalue['count'],
+                                          zvalue['up'], zvalue['warmup'],
+                                          zvalue['backoff'],
+                                          zvalue['draining']])
+            table.add_row(('Total', total, total_up, total_warmup,
+                           total_backoff, total_draining),)
+        else:
+            res = self._make_request(GET, '/servers/%s' % zone)
+            if res is None or res.status_code != 200:
+                return
+            table.add_row((zone, res.json()['servers']['count'],
+                           res.json()['servers']['up'],
+                           res.json()['servers']['warmup'],
+                           res.json()['servers']['backoff'],
+                           res.json()['servers']['draining']),)
+            if graphv:
+                bar_chart.add(zone, [res.json()['servers']['count'],
+                                     res.json()['servers']['up'],
+                                     res.json()['servers']['warmup'],
+                                     res.json()['servers']['backoff'],
+                                     res.json()['servers']['draining']])
+        if graph:
+            temp = tempfile.NamedTemporaryFile(
+                prefix='Servers', suffix='.png', mode='w+b')
+            bar_chart.render_to_png(temp.name)
+            self._bot.sc.api_call(
+                'files.upload',
+                channels=str(recipient),
+                filename='Servers by zone and status',
+                file=temp)
+        self._post_table(table, recipient, '*Servers by zone and status*',
+                         sortby='Name')
+
+    @arg_botcmd('--zone', type=str, default=None,
+                help='Show data for a specific zone\
+                Default to show all zones String')
+    def media_zones(self, msg, zone=None):
+        self.msg = msg
+        recipient = self._get_channel_id(msg)
+        table = prettytable.PrettyTable(
+            ['Name', 'Is Auto Scaling', 'Limits', 'Last Modified'])
+        table.align = 'c'
+        if zone is None:
+            res = self._make_request(GET, '/scale/zones')
+            if res is None or res.status_code != 200:
+                return
+            for zname, zvalue in res.json()['zones'].items():
+                last_mod = arrow.get(zvalue['last_modified'])
+                table.add_row((zname, str(zvalue['is_autoscaling']),
+                               'Upper: ' + str(zvalue['limits']['upper']) +
+                               ' Lower: ' + str(zvalue['limits']['lower']),
+                               last_mod.humanize()),)
+        else:
+            res = self._make_request(GET, '/scale/zones/%s' % zone)
+            if res is None or res.status_code != 200:
+                return
+            last_mod = arrow.get(res.json()['last_modified'])
+            table.add_row((res.json()['name'],
+                           str(res.json()['is_autoscaling']),
+                           'Upper: ' + str(res.json()['limits']['upper']) +
+                           ' Lower: ' +
+                           str(res.json()['limits']['lower']),
+                           last_mod.humanize()),)
+        if zone is None:
+            title = 'Zones Status'
+        else:
+            title = 'Zone Status'
+        self._post_table(table, recipient, title, sortby='Name')
+
+    @botcmd
+    def media_events(self, msg, args):
+        """Display last 15 events"""
+        self.msg = msg
+        recipient = self._get_channel_id(msg)
+        table = prettytable.PrettyTable(
+            ['Event Time', 'Event Description'])
+        table.align = 'c'
+        table.reversesort = True
+        res = self._make_request(GET, '/scale/events_log')
+        if res is None or res.status_code != 200:
+            return
+        for event in list(res.json()['events'].items())[:15]:
+            table.add_row((event[0],
+                           event[1],))
+        self._post_table(table, recipient, 'Events Log', sortby='Event Time')
+
+    @arg_botcmd('zone', type=str, help='Zone name')
+    @arg_botcmd('--upper', dest='upper', type=int,
+                help='Upper limit for zone')
+    @arg_botcmd('--lower', dest='lower', type=int,
+                help='Lower limit for zone')
+    def media_limits(self, msg, zone, upper, lower):
+        """Set/Get zone limits"""
+        self.msg = msg
+        res = self._make_request(GET, '/scale/%s/limits' % zone)
+        if res is None or res.status_code != 200:
+            return
+        if upper is None and lower is None:
+            self.send_card(title='Get Limits for Zone  %s' % zone,
+                           color='green', in_reply_to=msg,
+                           body='Upper: ' + str(res.json()['upper']) +
+                           ' Lower: ' + str(res.json()['lower']))
+        else:
+            prev_upper = res.json()['upper']
+            prev_lower = res.json()['lower']
+            upper = upper if upper is not None else prev_upper
+            lower = lower if lower is not None else prev_lower
+            data = {'upper': upper, 'lower': lower, 'mention': str(msg.frm.person)[1:]}
+            res = self._make_request(PUT, '/scale/%s/limits' % zone, data)
+            if res is None or res.status_code != 200:
+                return
+            self.send_card(title='Set limits for Zone  %s' % zone,
+                           color='green', in_reply_to=msg,
+                           body='Upper: ' + str(res.json()['upper']) +
+                           ' (' + str(prev_upper) + ')'
+                           ' Lower: ' + str(res.json()['lower']) +
+                           ' (' + str(prev_lower) + ')')
+
+    @arg_botcmd('--enabled', default=None, dest='enabled',
+                help='Get/Set Auto scale')
+    def media_config(self, msg, enabled=None):
+        """Set/Get Autoscaling config"""
+        self.msg = msg
+        if enabled is None:
+            res = self._make_request(GET, '/scale/config')
+            if res is None or res.status_code != 200:
+                return
+        else:
+            en = False
+            en = self._t_or_f(enabled)
+            data = {'enabled': en, 'mention': str(msg.frm.person)[1:]}
+            res = self._make_request(PATCH, '/scale/config', data)
+            if res is None or res.status_code != 200:
+                return
+        self.send_card(title='Auto scaling Config', color='green',
+                       in_reply_to=msg, body='Enabled ' +
+                       str((res.json()['enabled'])))
+
+    @arg_botcmd('server', type=str, help='Server name/ip')
+    def media_decommission(self, msg, server=None):
+        """decommission a media server."""
+        self.msg = msg
+        if self._is_ip(server):
+            data = {'ip': server}
+        else:
+            data = {'name': server}
+        data['mention']=str(msg.frm.person)[1:]
+        res = self._make_request(POST, '/servers/decommission', data)
+        if res is None or res.status_code != 200:
+            return
+        self.send_card(title='Removing Server %s' % server, color='green',
+                       in_reply_to=msg, body='Command Status ' +
+                       str((res.json()['status'])))
+
+    @arg_botcmd('delta', type=int, help='Number of servers to add/remove')
+    @arg_botcmd('zone', type=str, help='Zone to scale')
+    def media_scale(self, msg, zone=None, delta=0):
+        """Scale media servers add/remove."""
+        self.msg = msg
+        data = {
+            'zone': zone,
+            'delta': delta,
+            'mention': str(msg.frm.person)[1:]
+        }
+        res = self._make_request(POST, '/scale/resize', data)
+        if res is None or res.status_code != 200:
+            return
+        self.send_card(title='Scale in Action for zone %s delta: %d' %
+                       (zone, delta), color='green',
+                       in_reply_to=msg, body='Command Status ' +
+                       str((res.json()['status'])))
+
+    @arg_botcmd('--zone', type=str, default=None,
+                help=('Show users for a specific zone'
+                      'Default to show all zones'))
+    def media_users(self, msg, zone=None):
+        self.msg = msg
+        recipient = self._get_channel_id(msg)
+        table = prettytable.PrettyTable(['Name', 'Users'])
+        table.align = 'c'
+        total = 0
+        if zone is None:
+            res = self._make_request(GET, '/servers/load')
+            if res is None or res.status_code != 200:
+                return
+            for zdata in res.json()['zones'].items():
+                table.add_row((zdata[0], zdata[1],))
+                total = total + zdata[1]
+            table.add_row(('Total', total),)
+        else:
+            res = self._make_request(GET, '/servers/%s/load' % zone)
+            if res is None or res.status_code != 200:
+                return
+            table.add_row((zone, str(res.json()['load'])))
+        title = '*Users in conferences*'
+        table.reversesort = True
+        self._post_table(table, recipient, title, sortby='Users')
+
+    @arg_botcmd('--ratio', default=-1, dest='ratio',
+                type=float, help='Get/Set random_lb_ratio  ratio')
+    def media_randomlbratio(self, msg, ratio=-1):
+        """Set/Get random lb ratio"""
+        self.msg = msg
+        if ratio == -1:
+            res = self._make_request(GET, '/config/bleed_ratio')
+            if res is None or res.status_code != 200:
+                return
+        else:
+            if ratio < 0 or ratio > 1:
+                self._post_error('Incorrect Value', '0< ratio < 1', self.msg)
+            data = {'bleed_ratio': ratio, 'mention':str(msg.frm.person)[1:]}
+            res = self._make_request(PUT, '/config/bleed_ratio', data)
+            if res is None or res.status_code != 200:
+                return
+        self.send_card(title='Bleed ratio', color='green',
+                       in_reply_to=msg, body='Ratio ' +
+                       str((res.json()['bleed_ratio'])))
+
+    @arg_botcmd('--action', default=None, dest='action',
+                type=str, help='Get/Set/delete spacial users')
+    @arg_botcmd('--user', '-u', type=str, dest='user', default=None)
+    @arg_botcmd('--server', '-s', type=str, dest='server', default=None)
+    def media_special_users(self, msg, action=None, user=None, server=None):
+        """Set/Get bleed ratio"""
+        self.msg = msg
+        recipient = self._get_channel_id(msg)
+        table = prettytable.PrettyTable(['Name', 'Users'])
+        table.align = 'c'
+        if action is None:
+            res = self._make_request(GET, '/config/special_users')
+            if res is None or res.status_code != 200:
+                return
+            table = prettytable.PrettyTable(['Name', 'Server'])
+            table.align = 'l'
+            for name, server in res.json().items():
+                table.add_row((name, server),)
+            title = '*Special Users*'
+            self._post_table(table, recipient, title, sortby='Name')
+        elif action.upper() == 'ADD':
+            if user is None or server is None:
+                return self.send_card(title='*Special Users*', color='red',
+                                      in_reply_to=msg,
+                                      body='server and user are mandatory')
+            data = {'ip': server, 'mention': str(msg.frm.person)[1:]}
+            res = self._make_request(PUT, '/config/special_users/%s' % user,
+                                     data)
+            if res is None or res.status_code != 200:
+                return
+            return self.send_card(title='*%s was added' % user, color='green',
+                                  in_reply_to=msg,
+                                  body='Server = %s' % server)
+        elif action.upper() == 'DEL':
+            if user is None:
+                return self.send_card(title='*Special Users*', color='red',
+                                      in_reply_to=msg,
+                                      body='server and user are mandatory')
+            res = self._make_request(DELETE, '/config/special_users/%s' % user)
+            if res is None or res.status_code != 200:
+                return
+            return self.send_card(title='*%s was deleted' % user,
+                                  color='green',
+                                  in_reply_to=msg,
+                                  body='I guess that %s is not that spacial'
+                                  % user)
+        else:
+            return self.send_card(title='*Special Users*', color='red',
+                                  in_reply_to=msg,
+                                  body='Usage: --Add user server, --Del users')
+
+    @arg_botcmd('area', type=str, help='area')
+    def media_routing(self, msg, area):
+        """Get routing"""
+        self.msg = msg
+        recipient = self._get_channel_id(msg)
+        res = self._make_request(GET, '/config/routing/%s' % area.lower())
+        if res is None or res.status_code != 200:
+            return
+        if area == 'modification_history':
+            table = prettytable.PrettyTable(['Dates'])
+            table.align = 'r'
+            for item in res.json()['modification_history']:
+                table.add_row(item)
+            self._post_table(table, recipient, 'Data modification history')
+            return
+
+        table = prettytable.PrettyTable(['RTT', 'Region', 'Samples', 'Cluster'])
+        table.align = 'r'
+        radar_chart = pygal.Radar()
+        radar_chart.title = 'Routing for %s' % area
+        region = []
+        rtt = []
+        for zvalue in res.json()[area.lower()]:
+            table.add_row((int(zvalue['rtt']), zvalue['region'],
+                           str(zvalue['samples']), zvalue['cluster']),)
+            region.append(zvalue['region'])
+            rtt.append(int(zvalue['rtt']))
+        title = '*Routing for %s *' % area
+        radar_chart.x_labels = region
+        radar_chart.add('RTT', rtt)
+        self._post_table(table, recipient, title, sortby='RTT')
+        temp = tempfile.NamedTemporaryFile(
+            prefix='Routing', suffix='.png', mode='w+b')
+        radar_chart.render_to_png(temp.name)
+        self._bot.sc.api_call(
+            'files.upload',
+            channels=str(recipient),
+            filename='Routing for %s' % area,
+            file=temp)
+
+    @botcmd
+    def media_orphans(self, msg, args):
+        """Display orphans(media servers in do but not in cb)"""
+        self.msg = msg
+        recipient = self._get_channel_id(msg)
+        table = prettytable.PrettyTable(['Orphans'])
+        table.align = 'c'
+        res = self._make_request(GET, '/servers/orphans')
+        found = False
+        if res is None or res.status_code != 200:
+            return
+        for orphan in res.json()['orphans']:
+            found = True
+            table.add_row((orphan,),)
+        if found:
+            self._post_table(table, recipient, 'Orphans')
+        else:
+            return self.send_card(title='No orphans found', color='green',
+                                  in_reply_to=msg,
+                                  body='One big happy family')
+
+    @botcmd
+    def media_list_failed_consul(self, msg, args):
+        """List all failed media-servers (from consul) in the fez channel."""
+        self.msg = msg
+        data = {}
+        data['mention']=str(msg.frm.person)[1:]
+        res = self._make_request(POST, '/consul/list-failed-servers', data)
+        if res is None or res.status_code != 200:
+            return
+        self.send_card(title='Listing failed consul servers in the fez channel...', color='green',
+                       in_reply_to=msg, body='Command Status ' +
+                       str((res.json()['status'])))
+
+    @botcmd
+    def media_clean_failed_consul(self, msg, args):
+        """Clean all failed media-servers (from consul)."""
+        self.msg = msg
+        data = {}
+        data['mention']=str(msg.frm.person)[1:]
+        res = self._make_request(POST, '/consul/clean', data)
+        if res is None or res.status_code != 200:
+            return
+        self.send_card(title='Cleaning failed consul servers...(this can take a few minutes)', color='green',
+                       in_reply_to=msg, body='Command Status ' +
+                       str((res.json()['status'])))
+
+    @botcmd
+    def media_draining(self, msg, args):
+        self.msg = msg
+        recipient = self._get_channel_id(msg)
+        table = prettytable.PrettyTable(['Zone', 'Server'])
+        table.align = 'c'
+        res = self._make_request(GET, '/servers')
+        if res is None or res.status_code != 200:
+            return
+        for zname, zvalue in res.json()['servers'].items():
+            for key,value in zvalue['servers'].items():
+                if value['status'] == 'draining':
+                   table.add_row((zname, key),)
+        self._post_table(table, recipient, '*Servers draining*',
+                         sortby='Zone')
+
+

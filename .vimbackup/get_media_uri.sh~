@@ -1,0 +1,59 @@
+#!/usr/bin/env bash
+
+###
+### Print a valid media uri to connect to on this host (assumes docker setup)
+###
+
+set -e
+echo Registering
+reg_result=$(curl -XPOST \
+    -H 'x-rounds-request-id: request-id-123' \
+    -H 'x-rounds-device-id: xxx-yyy-zzz' \
+    -H 'x-rounds-app-name: booyah' \
+    -H 'x-rounds-os-name: ios' \
+    -H 'x-rounds-app-version: 1.0.1' \
+    -H 'x-rounds-version: 1.0' \
+    -H 'x-rounds-client-id: ' \
+    -H 'x-rounds-api-key: ' \
+    -H 'content-type: application/json' \
+    -d '{"hardware_data": {"model": "test", "manufacturer": "samsung"}, "carrier_data": {"sim_data": {"code": "11", "name": "aa"}, "network_operator": {"code": "22", "name": "bb"}, "network_type": "wifi"}, "app_data": {"version": "1.0.1", "type": "ios", "name": "booyah"}, "os_data": {"locale": "en_US", "version": "9.0.2", "name": "ios"}, "id": "xxx-yyy-zzz"}' \
+     localhost:5000/v1/devices)
+
+api_key=$(echo $reg_result | jq -r ".api_key")
+client_id=$(echo $reg_result | jq -r ".client_id")
+echo "api key: $api_key   client id: $client_id"
+echo Creating group
+group_result=$(curl -XPOST -H 'x-fake-remote-addr: 31.168.235.22' \
+    -H 'x-rounds-request-id: request-id-123' \
+    -H 'x-rounds-device-id: xxx-yyy-zzz' \
+    -H 'x-rounds-app-name: booyah' \
+    -H 'x-rounds-os-name: ios' \
+    -H 'x-rounds-app-version: 1.0.1' \
+    -H 'x-rounds-version: 1.0' \
+    -H 'x-rounds-client-id: '$client_id \
+    -H 'x-rounds-api-key: '$api_key \
+    -H 'content-type: application/json' \
+    -s localhost:5000/v1/groups)
+
+group_id=$(echo $group_result | jq -r ".id")
+echo "group_id: $group_id"
+
+echo "Joining conference"
+
+endpoint="localhost:5000/v1/${1-conferences}"
+
+echo $endpoint
+
+conference=$(curl -XPOST -H 'x-fake-remote-addr: 31.168.235.22' \
+    -H 'x-rounds-request-id: request-id-123' \
+    -H 'x-rounds-device-id: xxx-yyy-zzz' \
+    -H 'x-rounds-app-name: booyah' \
+    -H 'x-rounds-os-name: ios' \
+    -H 'x-rounds-app-version: 1.0.1' \
+    -H 'x-rounds-version: 1.0' \
+    -H 'x-rounds-client-id: '$client_id \
+    -H 'x-rounds-api-key: '$api_key \
+    -H 'content-type: application/json' \
+    $endpoint)
+
+echo $conference

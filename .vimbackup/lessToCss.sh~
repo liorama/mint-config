@@ -1,0 +1,12 @@
+#!/bin/bash
+
+cd styles
+
+for f in `find ./ -name "*.less"`
+do
+	output=${f/src/tmp}
+	output=${output/.less/.css}
+	path=`dirname $output`
+	mkdir -p $path
+	lessc --yui-compress "$f" > "$output"
+done

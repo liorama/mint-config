@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en"  ng-ap>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0"/>
+    <meta name="apple-mobile-web-app-capable" content="yes"/>
+    <meta name="Vary" content="Accept-Encoding" />
+    <link rel="stylesheet" href="//am.rounds.com/wasabi/apps/jungleBungle/css/web/main4.css" />
+    <style >
+        .hidden{
+            display: none;
+        }
+    </style>
+</head>
+<body>
+<div class='wrapper'>
+<div id="page">
+    <div class="main" id="main">
+        <section class="gameControl">
+            <div class="dashboard">
+              <div class="pauseWrapper">
+                  <div class="cloud"></div>
+                  <div class="leaf1"></div>
+                  <div class="leaf2"></div>
+                  <a class="pause"></a>
+              </div>
+              <div class="bonusesWrapper"></div>
+
+            </div>
+        </section>
+      <div class="board" id="board">
+
+          <div class="mask"></div>
+      </div>
+      <div class='popupWrapper'></div>
+        <div class="bottomLink">
+            <a href="//rounds.com/get" target="_blank">Play this game as well as many others on Rounds Mobile</a>
+        </div>
+    </div>
+
+</div>
+
+<div class="settingsFrame" id="settingsFrame">
+    <div class="generalScreens splash" id="generalScreens">
+        <div class="revolver">
+            <div class="centerer">
+                <div class="screenWrapper splashWrapper">
+                    <div class="animalsDiv"></div>
+                    <div class="screen" id="splash">
+                        <div class='cloud1 deco'></div>
+                        <div class='cloud2 deco'></div>
+                         <div class="gameSign"></div>
+                        <div class='leaf1 deco'></div>
+                        <div class='leaf2 deco'></div>
+                        <div class="loading"></div>
+                    </div>
+
+                </div>
+                <!--
+                <div class="screenWrapper settingsWrapper">
+                    <div class="screen" id="settings">
+
+                    </div>
+
+                </div>
+                <div class="screenWrapper levelsWrapper">
+
+                    <div  class="screen" id="levels">
+
+                    </div>
+                </div>
+
+                -->
+            </div>
+        </div>
+        <div class="mask" id="loadingMask"></div>
+
+    </div>
+    <div class="jeep"></div>
+</div>
+
+</div>
+<div class="hidden" id="hidden">
+
+</div>
+<script>
+    document.ontouchmove = function(e){ e.preventDefault(); }
+</script>
+<!--<script src="http://office.gixoo.com:8282/target/target-script-min.js#ohad"></script>-->
+<script type="text/javascript" src="//code.jquery.com/jquery-2.0.0.min.js"></script>
+
+<script type="text/javascript" src="//am.rounds.com/wasabi/apps/jungleBungle/js/lib/hammer.jquery.min.js"></script>
+<script type="text/javascript" src="//www.rounds.com/wasabi/get-latest/wasabi.js"></script>
+<script type="text/javascript" src="//am.rounds.com/wasabi/apps/jungleBungle/js/bin/web/main5.js"></script>
+<script type="text/javascript">
+
+    rounds.urls = {
+        wasabi : {
+            storage : null
+        }
+    };
+    rounds.init();
+//    rounds.fireEvent("mobile.init");
+</script>
+</body>
+</html>

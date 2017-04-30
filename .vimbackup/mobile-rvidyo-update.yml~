@@ -1,0 +1,10 @@
+- include: roles/mobile-rvidyo/tasks/update.yml
+  vars:
+    service_name: "rvidyo" #rvidyo/rvidyo.2
+    git_revision: "03112015"
+    signaling_port: 50000
+    http_port: 49999
+    media_protocol: "udp"
+    ca_file: "comodo-rsa-domain-validation-sha-2-intermediates.ca-bundle"
+    cert_pub: "STAR_partnersheep_com.crt"
+    cert_priv: "partnersheep.priv"

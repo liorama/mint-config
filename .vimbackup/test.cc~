@@ -1,0 +1,264 @@
+#define private public
+
+#include <iostream>
+#include <Lmi/Os/LmiTimerLoop.h>
+#include <Lmi/Utils/LmiString.h>
+#include <exception>
+
+#include "rscip/manager.h"
+#include "rscip/conference.h"
+#include "rscip/participant.h"
+#include "rscip/mq_connection.h"
+
+#include "general.h"
+#include "configfile.h"
+#include <ctime>
+#include <cstdlib>
+#include <unistd.h>
+
+using namespace std;
+using namespace mq;
+
+
+#define RED "[1;31m"
+#define GREEN "[1;32m"
+#define RESET "[0m"
+#define ERROR(x) cerr << RED << x << RESET << endl; return 1
+#define ASSERT(condition, message) if (not (condition)) { ERROR(message); } else {}
+
+
+int testExtractToken() {
+    string tom = "scip:intellectronica@Ir2i34CBqVpi2tdT-a63DPY7rCg:50000;transport=TCP";
+    string tomToken = "Ir2i34CBqVpi2tdT-a63DPY7rCg";
+    ASSERT(extractTokenFromUriString(tom) == tomToken, "wrong extract tom");
+
+    string ofer = "scip:Ofer@FaCZq81kstLTa2s1KafP8gKXKdg:50000;transport=TCP";
+    string oferToken = "FaCZq81kstLTa2s1KafP8gKXKdg";
+    ASSERT(extractTokenFromUriString(ofer) == oferToken, "wrong extract ofer");
+
+    string doody = "scip:Doody@tspX1YjvJOap29-scerHfs6nBYM:50000;transport=TCP";
+    string doodyToken = "tspX1YjvJOap29-scerHfs6nBYM";
+    ASSERT(extractTokenFromUriString(doody) == doodyToken, "wrong extract doody");
+    return 0;
+}
+
+int testMQ(const char* configName) {
+    ConfigMap conf = ConfigMap::readConfig(configName);
+    string mqhostname = conf.getString("mqhostname");
+    int mqport = conf.getNum("mqport");
+    string mqusername = conf.getString("mqusername");
+    string mqpassword = conf.getString("mqpassword");
+    std::string mqvhost = conf.getString("mqvhost");
+    mq::Pool::instance().init(mqhostname, mqvhost, mqport, mqusername, mqpassword, 1);
+
+    Connection* conn = mq::Pool::instance().connection();
+    conn->sendMessage("message test", "media-server", "media-server");
+    mq::Pool::instance().freeConnection(conn);
+
+    return 0;
+}
+
+int testMQReconnection(const char* configName) {
+    // should be run with a redis server that disconnects unexpectedly
+    ConfigMap conf = ConfigMap::readConfig(configName);
+    string mqhostname = conf.getString("mqhostname");
+    int mqport = conf.getNum("mqport");
+    string mqusername = conf.getString("mqusername");
+    string mqpassword = conf.getString("mqpassword");
+    std::string mqvhost = conf.getString("mqvhost");
+    mq::Pool::instance().init(mqhostname, mqvhost, mqport, mqusername, mqpassword, 1);
+
+    while (1) {
+        try {
+            Connection* conn = mq::Pool::instance().connection();
+            conn->sendMessage("message test", "media-server", "media-server");
+            mq::Pool::instance().freeConnection(conn);
+            cout << GREEN << "O" << RESET << endl;
+        } catch (const mq::MQException&) {
+            cout << RED << "X" << RESET << endl;
+        }
+        usleep(500000); // 0.5 seconds
+    }
+    return 0;
+}
+
+int testConfig(const char* configName) {
+    cout << "USING " << configName << endl;
+    ConfigMap map = ConfigMap::readConfig(configName);
+    try {
+        string qname = map.getString("no_such_key");
+        ERROR("no_such_key should raise exception");
+    } catch (const exception& e) {
+        cout << "no_such_key should raise exception" << endl;
+    }
+    try {
+        int port = map.getNum("mqport");
+        cout << "\"" << port << "\"" << endl;
+    } catch (const exception& e) {
+        ERROR("mqport should exist");
+    }
+    return 0;
+}
+
+
+int testIsNumber() {
+   ASSERT(isNumber("1234") == true, "should be a number");
+   ASSERT(isNumber("1r34") == false, "should not be a number");
+
+   const char* c_str =  "1234\x00\x00 blah";
+   LmiString lmistr;
+   LmiMallocAllocatorInitialize();
+
+   if (NULL == LmiStringConstructCStr(&lmistr, c_str, lmiAlloc)) {
+       ERROR("failed :(");
+   }
+
+   ASSERT(isNumber(lmistr), "should be number 1");
+   ASSERT(isNumber(string(LmiStringCStr(&lmistr))), "should be number 2");
+
+   c_str = "r1234\x00\x00 234234";
+   LmiStringConstructCStr(&lmistr, c_str, lmiAlloc);
+   ASSERT(not isNumber(lmistr), "should not be number 3");
+   ASSERT(not isNumber(string(LmiStringCStr(&lmistr))), "should not be number 4");
+   LmiStringDestruct(&lmistr);
+
+   c_str = "1\x00\x00 b";
+   LmiStringConstructCStrLen(&lmistr, c_str, 5, lmiAlloc);
+   ASSERT(not isNumber(lmistr), "should not be number 5");
+   ASSERT(not isNumber(string(LmiStringCStr(&lmistr), LmiStringSize(&lmistr))), "should not be number 6");
+
+   return 0;
+}
+
+
+int testIsConferenceId() {
+   const char* c_str = "booyah:p1i-jNdVNnJ6KKzl:1fE9";
+   LmiString lmistr;
+   bool res;
+   LmiMallocAllocatorInitialize();
+
+   LmiStringConstructCStr(&lmistr, c_str, lmiAlloc);
+   ASSERT(isConferenceId(lmistr) == true , "should be valid conference 1");
+   LmiStringDestruct(&lmistr);
+   c_str = "booyah:KJI_K7jf8I-f_F7w:jXud";
+   LmiStringConstructCStr(&lmistr, c_str, lmiAlloc);
+   ASSERT(isConferenceId(lmistr) , "should be valid conference 2");
+   LmiStringDestruct(&lmistr);
+   c_str = "booyah:7s1eLddZ3nutC_19:fXfl";
+   LmiStringConstructCStr(&lmistr, c_str, lmiAlloc);
+   ASSERT(isConferenceId(lmistr) == true , "should be valid conference 3");
+   LmiStringDestruct(&lmistr);
+   c_str = "booyah:FmhXqP2jtmH5msOr:M_bf";
+   LmiStringConstructCStr(&lmistr, c_str, lmiAlloc);
+   ASSERT(isConferenceId(lmistr) == true , "should be valid conference 4");
+   LmiStringDestruct(&lmistr);
+   c_str = "booyah:FmhXqP2jtmH5msOr:M_bx";
+   LmiStringConstructCStr(&lmistr, c_str, lmiAlloc);
+   ASSERT(isConferenceId(lmistr) == false , "should not be valid conference 1");
+   LmiStringDestruct(&lmistr);
+   c_str = "2";
+   LmiStringConstructCStr(&lmistr, c_str, lmiAlloc);
+   ASSERT(isConferenceId(lmistr) == false , "should not be valid conference 2");
+   LmiStringDestruct(&lmistr);
+   c_str = "alksjvblaksjdbvlkjasdv::::::askdbkasdjbvkj";
+   LmiStringConstructCStr(&lmistr, c_str, lmiAlloc);
+   ASSERT(isConferenceId(lmistr) == false , "should not be valid conference 3");
+   LmiStringDestruct(&lmistr);
+   return 0;
+}
+
+
+int testChecksum() {
+   const char* c_str = "booyah:KJI_K7jf8I-f_F7w";
+   LmiString lmistr;
+   LmiMallocAllocatorInitialize();
+
+   LmiStringConstructCStr(&lmistr, c_str, lmiAlloc);
+   ASSERT(getChecksum(string(LmiStringCStr(&lmistr)), 4) == "jXud" , "should be conference id3");
+   LmiStringDestruct(&lmistr);
+
+   return 0;
+}
+
+
+int testManager() {
+    MediaServerManager& mgr = MediaServerManager::instance();
+
+    string id = "60";
+    mgr.createConference(id);
+
+    cout << Participant::fromString("20000010,device1") << endl;
+
+    cout << "after createConference" << endl;
+    mgr.connectParticipant(id, Participant(20000010, "device_id"), "uri");
+    cout << "after connectParticipant" << endl;
+
+    cout << mgr << endl << endl;
+
+
+    try {
+        cout << "disconnectParticipant" << endl;
+        cout << mgr << endl;
+        mgr.disconnectParticipant(id, Participant(20000010, "device_id"));
+        cout << mgr << endl;
+    } catch (const exception& e) {
+        ERROR("got exception " << e.what());
+    }
+
+    try {
+        cout << "closeConference" << endl;
+        mgr.closeConference(id);
+    } catch (const exception& e) {
+        ERROR("got exception " << e.what());
+    }
+    return 0;
+}
+
+
+int main(int argc, char** argv) {
+    int res = 0;
+    try {
+        srand (time(NULL));
+        string type = "all";
+        const char* configName = "config.py";
+        if (argc > 1) {
+            configName = argv[1];
+        }
+        if (argc > 2) {
+            type = argv[2];
+            if (type == "mq") {
+                res = testMQ(configName);
+            } else if (type == "mqReconnect") {
+                res = testMQReconnection(configName);
+            } else if (type == "manager") {
+                res = testManager();
+            } else if (type == "isnumber") {
+                res = testIsNumber();
+            } else if (type == "config") {
+                res = testConfig(configName);
+            } else if (type == "extract") {
+                res = testExtractToken();
+            } else if (type == "conferenceid") {
+                res = testIsConferenceId();
+            } else if (type == "checksum") {
+                res = testChecksum();
+            }
+        }
+        if (type == "all") {
+            res += testManager();
+            res += testConfig(configName);
+            res += testMQ(configName);
+            res += testExtractToken();
+            res += testIsConferenceId();
+            res += testChecksum();
+        }
+        if (res == 0) {
+            cout << GREEN << "OK" << RESET << endl;
+        } else {
+            ERROR("FAILED " << res << " TESTS");
+        }
+    } catch (const exception& e) {
+        ERROR("ERROR " << e.what());
+    }
+    return res;
+}

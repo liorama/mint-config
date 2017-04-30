@@ -1,0 +1,53 @@
+{
+  "checks": {
+    "rabbitmq-messages_check-async_xmpp": {
+      "handlers": ["default"],
+      "command": "/etc/sensu/plugins/check-rabbitmq-queue.rb --user rounds --password opaopa --host localhost --port 55672 --queue async_xmpp -w 150 -c 500",
+      "interval": 60,
+      "occurrences": 5,
+      "subscribers": [ "rabbitmq-rounds" ]
+    },
+    "rabbitmq-messages_check-analytics": {
+      "handlers": ["default"],
+      "command": "/etc/sensu/plugins/check-rabbitmq-queue.rb --user rounds --password opaopa --host localhost --port 55672 --queue analytics -w 2500 -c 5000",
+      "interval": 60,
+      "occurrences": 5,
+      "subscribers": [ "rabbitmq-rounds" ]
+    },
+    "rabbitmq-messages_check-rscip": {
+      "handlers": ["default"],
+      "command": "/etc/sensu/plugins/check-rabbitmq-queue.rb --user rounds --password opaopa --host localhost --port 55672 --queue rscip -w 200 -c 300",
+      "interval": 60,
+      "occurrences": 5,
+      "subscribers": [ "rabbitmq-rounds" ]
+    },
+    "rabbitmq-messages_check-rscip-delay": {
+      "handlers": ["default"],
+      "command": "/etc/sensu/plugins/check-rabbitmq-queue.rb --user rounds --password opaopa --host localhost --port 55672 --queue rscip_delay -w 4000 -c 10000",
+      "interval": 60,
+      "occurrences": 5,
+      "subscribers": [ "rabbitmq-rounds" ]
+    },
+    "rabbitmq-messages_check-fast": {
+      "handlers": ["default"],
+      "command": "/etc/sensu/plugins/check-rabbitmq-queue.rb --user rounds --password opaopa --host localhost --port 55672 --queue fast -w 60 -c 120",
+      "interval": 60,
+      "occurrences": 5,
+      "subscribers": [ "rabbitmq-rounds" ]
+    },
+    "rabbitmq-messages_check-celery": {
+      "handlers": ["default"],
+      "command": "/etc/sensu/plugins/check-rabbitmq-queue.rb --user rounds --password opaopa --host localhost --port 55672 --queue celery -w 1500 -c 5000",
+      "interval": 60,
+      "occurrences": 5,
+      "subscribers": [ "rabbitmq-rounds" ]
+    },
+    "rabbitmq-messages_check-rvidyo": {
+      "handlers": ["default"],
+      "command": "/etc/sensu/plugins/check-rabbitmq-queue.rb --user rounds --password opaopa --host localhost --port 55672 --queue rvidyo -w 100 -c 200",
+      "interval": 60,
+      "occurrences": 5,
+      "subscribers": [ "rabbitmq-rounds" ]
+    }
+  }
+}

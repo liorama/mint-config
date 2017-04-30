@@ -1,0 +1,24 @@
+# media-server start
+- name: Create /opt/media-server directory
+  file: path=/opt/media-server state=directory
+
+- name: Create /var/log/media-server directory
+  file: path=/var/log/media-server state=directory
+
+- name: Copy media-server supervisor config files
+  copy:
+    src=etc/supervisor/conf.d/{{item}}.conf
+    dest=/etc/supervisor/conf.d/{{item}}.conf
+  with_items:
+    - media-server
+
+- name: Download media-server
+  get_url:
+    url=https://s3.amazonaws.com/rounds-deployment-binaries/media-server/media-server-{{git_revision}}
+    force=yes
+    dest=/opt/media-server/{{ service_name }}
+    mode=0770
+
+- name: Copy credential files for TLS
+  copy:
+    src=etc/ssl/rounds.video.pem dest=/etc/ssl/rounds.video.pem

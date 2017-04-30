@@ -1,0 +1,89 @@
+# We discoved this accelates the start of a call by a lot, 
+# 3 secounds with the hack vs 10 secounds without.
+# Basically the server doesn't need to do the ip discovery
+# part of the ICE proccess with the STUN server since it's public...
+- hosts: ~mobile-media-server-.+
+  remote_user: root
+  tasks:
+
+  - name: Install apt packages
+    apt: pkg={{item}}
+    with_items:
+      - iptables-persistent
+
+  - name: Clean up iptables (ipv4)
+    command: iptables --flush
+
+#TODO make the accept work with DROP of all other 10.0.0.0/8
+  - name: Accept server network trafic to reserved ips udp (ipv4)
+    shell: iptables -I OUTPUT -p udp -d {{ item }} -j ACCEPT
+    with_items:
+      - 10.135.96.64/26
+
+  - name: Accept server network trafic to reserved ips tcp (ipv4)
+    shell: iptables -I OUTPUT -p tcp -d {{ item }} -j ACCEPT
+    with_items:
+      - 10.135.96.64/26
+
+  - name: Block stun to reserved ips udp (ipv4)
+    shell: iptables -A OUTPUT -p udp -d {{ item }} -j DROP
+    with_items:
+#      - 10.0.0.0/8
+      - 100.64.0.0/10
+      - 169.254.0.0/16
+      - 172.16.0.0/12
+      - 192.0.0.0/24
+      - 192.0.2.0/24
+      - 192.168.0.0/16
+      - 198.18.0.0/15
+      - 198.51.100.0/24
+      - 203.0.113.0/24
+      - 240.0.0.0/4
+
+  - name: Block stun to reserved ips tcp (ipv4)
+    shell: iptables -A OUTPUT -p tcp -d {{ item }} -j DROP
+    with_items:
+#      - 10.0.0.0/8
+      - 100.64.0.0/10
+      - 169.254.0.0/16
+      - 172.16.0.0/12
+      - 192.0.0.0/24
+      - 192.0.2.0/24
+      - 192.168.0.0/16
+      - 198.18.0.0/15
+      - 198.51.100.0/24
+      - 203.0.113.0/24
+      - 240.0.0.0/4
+
+  - name: Clean up iptables (ipv6)
+    command: ip6tables --flush
+
+  - name: Block all stun server ips (ipv6)
+    shell: ip6tables -A OUTPUT -p udp -d {{ item }} -j DROP
+    with_items:
+      - 2a03:b0c0:1:d0::33:7001
+      - 2604:a880:800:10::1b:4001
+      - 2400:6180:0:d0::b3:b001
+      - 2a03:b0c0:2:d0::37e:f001
+      - 2604:a880:1:20::bf:c001
+      - 2a03:8180:1101:141::5
+      - 2a03:8180:1101:141::8
+      - 2607:f0d0:2103:34::4
+      - 2607:f0d0:3005:13f::3
+      - 2607:f0d0:2102:1a9::2
+      - 2401:c900:1101:313::4
+      - 2607:f0d0:3005:13f::2
+      - 2401:c900:1101:313::2
+      - 2a03:8180:1201:78::4
+      - 2a03:8180:1201:78::8
+      - 2401:c900:1001:8d::d
+      - 2401:c900:1001:8d::c
+      - 2401:c900:1401:3a::d
+      - 2401:c900:1401:3a::c
+
+  - name: Save iptables
+    shell: iptables-save > /etc/iptables/rules.v4
+
+  - name: Save ip6tables 
+    shell: ip6tables-save > /etc/iptables/rules.v6
+

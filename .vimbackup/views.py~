@@ -1,0 +1,186 @@
+"""
+Request handlers for the Batman server app.
+"""
+
+from os.path import dirname, abspath, join
+from cjson import decode
+from time import time
+
+from django.http import HttpResponse
+from django.conf import settings
+
+MODULES_FILE_PATH = join(dirname(abspath(__file__)), "modules.json")
+STATIC_MODULES = {}
+
+
+def reload_modules():
+    """Reload the contents of `STATIC_MODULES`."""
+    global STATIC_MODULES
+
+    with open(MODULES_FILE_PATH, 'r') as modules_file:
+        STATIC_MODULES = decode(modules_file.read())
+
+
+def update_modules(content):
+    """Reload the contents of `STATIC_MODULES` from `content`
+    and persist it.
+    """
+    global STATIC_MODULES
+
+    with open(MODULES_FILE_PATH, 'w') as modules_file:
+        modules_file.write(content)
+    STATIC_MODULES = decode(content)
+
+
+def get_modules():
+    """Return `STATIC_MODULES`."""
+    return STATIC_MODULES
+
+
+def normalize_static_file(file_data, debug):
+    """TODO"""
+    if not file_data['src'].startswith("http"):
+        file_data['src'] = "%s/%s" % (
+            settings.STATIC_URL, file_data['src'])
+
+    if debug:
+        file_data['src'] += "?dummy=%s" % str(time())
+
+
+def module_from_name(module_name):
+    """Return the module stanza corrsponding to `module_name`."""
+    path = module_name.split(".")
+    cursor = STATIC_MODULES
+    while len(path) > 0:
+        name = path[0]
+        if len(path) == 1 and name in cursor:
+            return cursor[name]
+        elif name in cursor:
+            cursor = cursor[name]
+            path.pop(0)
+        elif 'modules' in cursor:
+            cursor = cursor['modules']
+        else:
+            raise Exception('module not found %s' % module_name)
+    return None
+
+
+class Page(object):
+    def __init__(self, request, templateParams={}, pageParams={}, jsConf={}):
+        self._env = None
+
+        self._classes = []
+        self._templateParams = {}
+        self._templateParams.update(templateParams)
+
+        self._pageParams = {}
+        self._pageParams.update(pageParams)
+
+        self._modules = ["core"]
+        self._jsConf = {
+            'staticBase': settings.STATIC_URL,
+            'serverBase': settings.SERVER_BASE_URL,
+            'ricBase': settings.RIC_BASE_URL,
+            }
+        self._jsConf.update(jsConf)
+        self._inspectRequest(request)
+
+        self._templateParams['params'] = {
+            'urls': settings.USER_URLS
+            }
+
+    def _inspectRequest(self, request):
+        try:
+            self.debugMode = request.debug
+        except:
+            self.debugMode = False
+        if self.debugMode:
+            self._templateParams['debug'] = True
+        if not self.env:
+            try:
+                self.env = request.env
+            except:
+                self.env = 'test'
+
+    def getEnv(self):
+        return self._env
+
+    def setEnv(self, env):
+        if env not in ["test", "stage", "prod"]:
+            raise Exception('Unknown environment: "%s"' % env)
+        self._env = env
+
+    env = property(getEnv, setEnv)
+
+    def addClass(self, name):
+        self._classes.append(name)
+
+    def addModule(self, name):
+        if not name in self._modules:
+            self._modules.append(name)
+
+    def addJsConfParameter(self, name, value):
+        self._jsConf[name] = value
+
+    def addTemplateParameter(self, name, value):
+        is_param_dict = (
+            name in self._templateParams and
+            isinstance(self._templateParams[name], dict) and
+            isinstance(value, dict))
+        if is_param_dict:
+            self._templateParams[name].update(value)
+        else:
+            self._templateParams[name] = value
+
+    def addPageParameter(self, name, value):
+        self._pageParams[name] = value
+
+    def getContextData(self):
+        topScripts = []
+        scripts = []
+        styles = []
+        for module_name in self._modules:
+            module = module_from_name(module_name)
+            if 'topScripts' in module:
+                topScripts.extend(
+                    [script.copy() for script in module['topScripts']])
+
+            if 'scripts' in module:
+                scripts.extend([script.copy() for script in module['scripts']])
+
+            if 'styles' in module:
+                styles.extend([style.copy() for style in module['styles']])
+
+        for sfile in topScripts + scripts + styles:
+            normalize_static_file(sfile, self.debugMode)
+
+        data = {
+            'page': {
+                'js': {
+                    'conf': self._jsConf,
+                    'top': topScripts,
+                    'items': scripts
+                    },
+                'css': {
+                    'items': styles,
+                    }
+                }
+            }
+
+        data.update(self._templateParams)
+        data['className'] = " ".join(self._classes)
+        data['page'].update(self._pageParams)
+        return data
+
+
+def crossdomain(request):
+    """Request handler for crossdomain."""
+    xml = (
+        '<cross-domain-policy>'
+        '<allow-access-from domain="*.%s" secure="false" to-ports="*" />'
+        '</cross-domain-policy>') % settings.DOMAIN
+    response = HttpResponse(xml, content_type="text/xml")
+    response['Cache-Control'] = "max-age=99999"
+    return response
+
+reload_modules()

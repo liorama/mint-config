@@ -1,0 +1,31 @@
+booyah:
+  debug: False
+
+  app_port: 5000
+
+  couchbase_bucket: default
+  couchbase_conferences_bucket: conferences
+  couchbase_urls: 'couchbase-booyah-i-012acb81a225be2da.rounds.prod,couchbase-booyah-i-04853c41a9af6cb19.rounds.prod'
+
+  geoip_db_path: /usr/local/share/GeoIP/GeoIPCity.dat
+
+  eshu_frontend_password: v2mPNGHdiTHaeuRB9a0oY7rIcLCaBPWS
+  eshu_frontend_user: booyah
+  eshu_frontend_url: rabbitmq-eshu.rounds.prod
+  eshu_frontend_vhost: booyah
+
+  rabbit_host: rabbitmq.rounds.prod
+  rabbit_user: frontend
+  rabbit_pass: NgopUUonPEVHg5lv1UoESbDlSPwuiHJi
+  rabbit_vhost: media
+  rabbit_queue: media
+  rabbit_media_cb_queue: media
+  enable_mq_consumer: true
+
+  c2c_xmpp_host: xmpp.rounds.video
+  c2c_xmpp_vhost: ejabberd-c2c.rounds.com
+  c2c_xmpp_port: 5223
+
+  statsd_host: localhost,
+  statsd_port: 8125
+

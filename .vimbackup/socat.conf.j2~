@@ -1,0 +1,18 @@
+[program:socat]
+command=/usr/bin/socat -d TCP6-LISTEN:{{ signaling_port }},reuseaddr,fork,bind=\[{{ ansible_default_ipv6.address }}\] TCP4:{{ ansible_default_ipv4.address }}:{{ signaling_port}}
+autostart=true
+autorestart=true
+log_stdout=true
+log_stderr=true
+logfile_backups=1
+logfile=/var/log/%(program_name).log
+
+[program:socat.tls]
+command=/usr/bin/socat -d TCP6-LISTEN:{{ signaling_port }},reuseaddr,fork,bind=\[{{ ansible_default_ipv6.address }}\] TCP4:{{ ansible_default_ipv4.address }}:{{ signaling_port + 1 }}
+autostart=true
+autorestart=true
+log_stdout=true
+log_stderr=true
+logfile_backups=1
+logfile=/var/log/%(program_name).log
+

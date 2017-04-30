@@ -1,0 +1,79 @@
+{
+    {{ if ne .Env.STATSD_HOSTNAME "" }}hostname: "{{ .Env.STATSD_HOSTNAME }}",{{ end }}
+
+    backends: [
+        "./backends/console",
+        {{ if ne .Env.STATSD_ELASTICSEARCH_HOST "" }}"statsd-elasticsearch-backend",{{ end }}
+        {{ if ne .Env.STATSD_DATADOG_API_KEY "" }}"statsd-datadog-backend",{{ end }}
+    ],
+
+    percentThreshold: [ {{ .Env.STATSD_PERCENTAGE_THRESHOLD }} ],
+    flushInterval: {{ .Env.STATSD_FLUSH_INTERVAL }},
+
+    {{ if ne .Env.STATSD_ELASTICSEARCH_HOST "" }}
+    elasticsearch: {
+        port: {{ .Env.STATSD_ELASTICSEARCH_PORT }},
+        host: "{{ .Env.STATSD_ELASTICSEARCH_HOST }}",
+        path: "/",
+        indexPrefix: "statsd",
+        indexTimestamp: "day",
+        countType: "counter",
+        timerType: "timer",
+        timerDataType: "timer_data",
+        gaugeDataType: "gauge",
+        formatter: "default_format",
+    },
+    {{ end }}
+
+    {{ if eq .Env.STATSD_DATADOG_ENABLED "true" "True" }}
+
+    datadogApiKey: "{{ .Env.STATSD_DATADOG_API_KEY }}",
+
+    {{ if ne .Env.STATSD_DATADOG_PREFIX "" }}
+    datadogPrefix: "{{ .Env.STATSD_DATADOG_PREFIX }}",
+    {{ end }}
+
+    {{ if ne .Env.STATSD_DATADOG_TAGS "" }}
+    datadogTags: [ {{ .Env.STATSD_DATADOG_TAGS }} ],
+    {{ end }}
+
+    datadogMetricTagsByRegExp: {
+        '^interface\\.(\\S+)\\.(?:if_packets\\.packets|if_octets\\.octets|if_errors\\.errors)\\.(?:rx|tx)$': ['interface_name'],
+        '^cpu\\.(\\d+)\\.cpu\\.(user|system|wait|idle|steal|nice|interrupt|softirq)$': ['cpu_cpu', 'cpu_time'],
+        '^tcpconns\\.(\\S+)\\.tcp_connections\\.(ESTABLISHED|SYN_SENT|SYN_RECV|FIN_WAIT1|FIN_WAIT2|TIME_WAIT|CLOSED|CLOSE_WAIT|LAST_ACK|LISTEN|CLOSING)$': ['tcpconns_port', 'tcpconns_state'],
+        '^load\\.load\\.(shortterm|midterm|longterm)$': ['load_term'],
+        '^memory\\.memory\\.(cached|buffered|free|slab_recl|slab_unrecl|used)$': ['memory_type'],
+        '^df\\.(\\S+)+\\.df_complex\\.(free|reserved|used)$': ['df_partition', 'df_type'],
+
+        '^dbi\\.(\\S+)\\.trans_min\\.(\\S+)$': ['dbi_database_name', 'trans_min_name'],
+        '^dbi\\.(\\S+)\\.trans_min_user\\.(\\S+)$': ['dbi_database_name', 'trans_min_user_name'],
+        '^dbi\\.(\\S+)\\.trans_time_min\\.(\\S+)$': ['dbi_database_name', 'trans_time_min_name'],
+
+        '^dbi\\.(\\S+)\\.concurrent_calls$': ['dbi_database_name'],
+        '^dbi\\.(\\S+)\\.real_conf_divide_1on1_users$': ['dbi_database_name'],
+        '^dbi\\.(\\S+)\\.registrations$': ['dbi_database_name'],
+        '^dbi\\.(\\S+)\\.vidyo_conference_actual_send_hour$': ['dbi_database_name'],
+        '^dbi\\.(\\S+)\\.vidyo_conference_attempts_24$': ['dbi_database_name'],
+        '^dbi\\.(\\S+)\\.vidyo_conference_attempts_hour$': ['dbi_database_name'],
+        '^dbi\\.(\\S+)\\.vidyo_doomed_hour$': ['dbi_database_name'],
+        '^dbi\\.(\\S+)\\.vidyo_in_conference_hour_count$': ['dbi_database_name'],
+        '^dbi\\.(\\S+)\\.vidyo_media_received_hour_count$': ['dbi_database_name'],
+
+        '^dbi\\.(\\S+)\\.vidyo_conference_received_hour\\.iOS$': ['dbi_database_name'],
+        '^dbi\\.(\\S+)\\.vidyo_conference_received_hour\\.Android$': ['dbi_database_name'],
+        '^dbi\\.(\\S+)\\.vidyo_media_received_hour_by_type_count\\.iOS$': ['dbi_database_name'],
+        '^dbi\\.(\\S+)\\.vidyo_media_received_hour_by_type_count\\.Android$': ['dbi_database_name'],
+        '^dbi\\.(\\S+)\\.vidyo_in_conference_hour_by_type_count\\.iOS$': ['dbi_database_name'],
+        '^dbi\\.(\\S+)\\.vidyo_in_conference_hour_by_type_count\\.Android$': ['dbi_database_name'],
+
+        '^media_server\\.(\\S+)\\.status\\.(\\S+)$': ['app_component', 'media_server_status']
+
+        '^eshu\\.([\\w-]+)\\..+$': ['eshu_product'],
+
+        '^booyah\\.error\\.(\\S+)$': ['booyah_media_server_address'],
+
+        '^harpy\\.event_name\\.(\\S+)\\.(\\S+)$': ['harpy_event_index', 'harpy_event_name'],
+    },
+
+    {{ end }}
+}

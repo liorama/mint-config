@@ -1,0 +1,83 @@
+{
+    "city": "Ashburn",
+    "conference_id": "rkik.RQAJ1cpsWk0ZRqkB.phTS",
+    "country_code": "US",
+    "db_timestamp": "2016-12-01T21:19:08Z",
+    "event_name": "server_media_qos",
+    "ip_address": "52.44.21.99",
+    "location": {
+      "lat": 39.0481,
+      "lon": -77.4728
+    },
+    "media": {
+      "address": "198.199.122.90",
+      "region": "do-nyc1"
+    },
+    "metrics": {
+      "bandwidth_audio_recv_bit_rate": 0,
+      "bandwidth_audio_send_bit_rate": 0,
+      "bandwidth_total_available_recv_bandwidth": 877,
+      "bandwidth_total_available_send_bandwidth": 137,
+      "bandwidth_total_recv_bit_rate": 0,
+      "bandwidth_total_send_bit_rate": 0,
+      "bandwidth_video_recv_bit_rate": 0,
+      "bandwidth_video_send_bit_rate": 0,
+      "connection_stats_audio_average_latency": 57,
+      "connection_stats_audio_max_latency": 455,
+      "connection_stats_audio_round_trip_time": 100,
+      "connection_stats_audio_rtp_received": 310,
+      "connection_stats_audio_rtp_received_rate": 0,
+      "connection_stats_audio_rtp_sent": 7423,
+      "connection_stats_audio_rtp_sent_rate": 0,
+      "connection_stats_video_average_latency": 16,
+      "connection_stats_video_max_latency": 125579878,
+      "connection_stats_video_round_trip_time": 1227,
+      "connection_stats_video_rtp_received": 30564,
+      "connection_stats_video_rtp_received_rate": 0,
+      "connection_stats_video_rtp_sent": 10685,
+      "connection_stats_video_rtp_sent_rate": 0,
+      "receiver_stats_camera_video_firs_sent": 3,
+      "receiver_stats_camera_video_nacks_sent": 9,
+      "receiver_stats_camera_video_resolution_height": 448,
+      "receiver_stats_camera_video_resolution_width": 352,
+      "sender_stats": [
+        {
+          "fps_video_ssrc": 6,
+          "participant_id": "katepi_sa7",
+          "sender_video_ssrc": 6,
+          "video_firs_received": 0,
+          "video_requested_fps": 0,
+          "video_resolution_height": 0,
+          "video_resolution_width": 0,
+          "video_routed_fps": 0,
+          "video_rtp_sent_packets": 0,
+          "video_rtp_sent_rate": 0
+        }
+      ]
+    },
+    "participant": {
+      "connection_token": "kiSHRT3LD6E6R5op:1480625092688",
+      "geo": {
+        "city": "Surprise",
+        "continent": "NA",
+        "country_code": "US",
+        "country_name": "United States",
+        "location": {
+          "lat": 33.63059999999999,
+          "lon": -112.3332
+        },
+        "region_code": "AZ"
+      },
+      "media_start_timestamp": "2016-12-01T20:44:54.010415+0000",
+      "network": {
+        "ip": "68.231.58.7"
+      },
+      "start_timestamp": "2016-12-01T20:44:52.689371+0000",
+      "user": {
+        "id": "katepi_sa7"
+      }
+    },
+    "participant_id": "katepi_sa7",
+    "region": "VA",
+    "timestamp": "2016-12-01T21:19:08.370113+00:00"
+  }

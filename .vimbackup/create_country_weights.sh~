@@ -1,0 +1,1 @@
+* */1 * * root /opt/application/rounds/ricapi/scripts/rounds_script.sh python /opt/application/rounds/ricapi/scripts/update_country_weight.py

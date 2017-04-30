@@ -1,0 +1,17 @@
+- hosts: "{{ hosts | default('tag_type_rkikcron') }}"
+  remote_user: "{{ remote_user | default('ubuntu') }}"
+  roles:
+    - ubik/playbooks/roles/base
+    - ubik/playbooks/roles/docker
+    - conference-service/playbooks/roles/conference-service
+    - rkikcron
+
+    - conference-service/playbooks/roles/geoip-downloader
+    - conference-service/playbooks/roles/init-balancer-data
+    - conference-service/playbooks/roles/nginx-reverse-proxy
+
+  become: true
+  vars:
+    conference_service_image_tag: latest
+  vars_files:
+    - galaxy/conference-service/playbooks/vars/conference-service-prod.yml

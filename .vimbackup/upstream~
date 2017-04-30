@@ -1,0 +1,14 @@
+upstream batman  {
+    server {{ upstrean_batman }};
+}
+
+upstream wordpressapache {
+    server {{ upstream_wordpressapache }} weight=1 fail_timeout=120s;
+}
+
+upstream new_wordpress{
+    server {{ upstream_new_wordpress }} weight=1 fail_timeout=120s;
+    keepalive 128;
+}
+
+

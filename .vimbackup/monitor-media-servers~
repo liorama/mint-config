@@ -1,0 +1,1 @@
+00 00,12 * * * root docker run conference-service python /opt/scripts/get_rtt.py

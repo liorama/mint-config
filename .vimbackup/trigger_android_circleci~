@@ -1,0 +1,2 @@
+###    Run the script to trigger an Android release build on Circle CI ###
+0 04 * * 0-4 root python /etc/cron.d/scripts/trigger_android_circleci.py

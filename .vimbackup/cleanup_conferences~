@@ -1,0 +1,2 @@
+###    Run the script to grab dynamic routing (rtt) data from ES twice a day, at 00:00 and 13:00    ###
+0 */1 * * * root docker exec conference-service python /opt/scripts/cleanup_conferences.py

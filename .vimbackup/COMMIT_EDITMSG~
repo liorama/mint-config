@@ -1,0 +1,25 @@
+Revert "Merge pull request #72 from kikinteractive/lior/revert_ipv6"
+
+This reverts commit be683f24243ed8dd3085bdc504d06a94231c7f21, reversing
+changes made to 095144c82b5e842ff7144b049096809faad16e96.
+
+# Please enter the commit message for your changes. Lines starting
+# with '#' will be ignored, and an empty message aborts the commit.
+# On branch master
+# Your branch is up-to-date with 'origin/master'.
+#
+# Changes to be committed:
+#	modified:   app/autoscale/servers_factory.py
+#	modified:   app/balancer/__init__.py
+#	modified:   app/balancer/dynamic_config.py
+#	modified:   app/balancer/media_server_api.py
+#	modified:   app/balancer/models.py
+#	modified:   app/balancer/router.py
+#	modified:   app/cloud/do.py
+#	modified:   app/cloud/r53.py
+#	modified:   app/media_server/models.py
+#
+# Untracked files:
+#	scripts/init_balancing_data.py
+#	scripts/media_routing_table.json
+#

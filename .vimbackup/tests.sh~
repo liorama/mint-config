@@ -1,0 +1,7 @@
+#!/bin/bash
+if [[ "X$(basename -- "$0")" = "Xbuild.sh" ]] then;
+    echo source me
+else
+    echo cool
+
+fi

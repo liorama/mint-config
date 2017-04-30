@@ -1,0 +1,78 @@
+"""Configuration handling."""
+
+import os
+
+HOUR = 60 * 60
+DAY = HOUR * 24
+
+_config = None
+
+
+def init():
+    """Initialize configuration using environment variables."""
+    global _config
+
+    if _config is not None:
+        return get()
+
+    _config = {
+        'API_VERSION': 'v1',
+
+        'USE_REAL_HOSTS': os.getenv('USE_REAL_HOSTS').lower() in ['true', '1'],
+        'DEBUG': (os.getenv('APP_DEBUG') or 'false').lower() in ['true', '1'],
+        'APP_NAME': os.getenv('APP_NAME') or 'fez',
+        'APP_PORT': int(os.getenv('APP_PORT') or 5000),
+        'FEZ_URL': os.getenv('APP_FEZ_URL'),
+        'CURRENT_USER': os.getenv('APP_CURRENT_USER', 'prod'),
+
+        'JSON_SORT_KEYS': False,
+        'JSONIFY_PRETTYPRINT_REGULAR': False,
+
+        # couchbase
+        'COUCHBASE_BUCKET': os.getenv('APP_COUCHBASE_BUCKET'),
+        'COUCHBASE_CONFERENCES_BUCKET': os.getenv('APP_COUCHBASE_CONFERENCES_BUCKET'),
+        'COUCHBASE_LOCKS_BUCKET': os.getenv('APP_COUCHBASE_LOCKS_BUCKET'),
+        'COUCHBASE_URLS': os.getenv('APP_COUCHBASE_URLS'),
+
+        # statsd
+        'STATSD_HOST': os.getenv('STATSD_HOST'),
+        'STATSD_PORT': int(os.getenv('STATSD_PORT') or 8125),
+
+        # prometheus
+        'PROMETHEUS_URL': os.getenv('PROMETHEUS_URL'),
+        'PUSHGATEWAY_URLS': os.getenv('PUSHGATEWAY_URLS'),
+
+        # checker
+        # the checker uses this to ensure that exactly one AM is active
+        'ALERTMANAGER_FQDNS': ['http://alertmanager-1.rkik.prod:9093', 'http://alertmanager-2.rkik.prod:9093'],
+
+        # reaper
+        'REAPING_DRAINING_TIMEOUT_MINUTES': 60*2,  # how long to wait before we kill a draining server
+        'REAPING_DRAINING_PARTICIPANTS_THRESHOLD': 0,  # kill draining media servers when they reach below this threshold
+        'REAPING_BACKOFF_TIMEOUT_MINUTES': 2,  # how to long to wait before we kill a backoff server
+        'REAPING_WARMUP_TIMEOUT_MINUTES': 10,  # how long to wait before we kill a warmup server
+        'REAPING_BACKOFF_REVIVE_DELAY_SECONDS': 2,  # how long to wait in between http-requests during revive-checks
+
+        # adjuster
+        'ADJUSTER_ZONE_COOLDOWN_SECONDS': 61,
+
+        # Media server misc
+        'DO_API_KEY': os.getenv('DO_API_KEY'),
+        'LATE_SPAWNERS_REGION_THRESHOLD': 10, # regions will NOT upscale if there are more than 10 late-spawners: servers that are stuck while spawn.
+        'DROPLETS_LATENESS_THRESHOLD_SEC': 5*60,
+
+        'WAIT_FOR_HOSTS_TIMEOUT_SEC': 5 * 60,  # how long to wait for droplets to spin
+        'WAIT_FOR_MEDIA_SERVER_TIMEOUT_SEC': 5 * 60,  # how long to wait for media-processes to start
+        'WAIT_FOR_MEDIA_SERVER_SSL_HANDSHAKE_TIMEOUT_SEC': 3,  # how long to wait for successfull ssl handshake
+
+        'MEDIA_ROUTING_DOCUMENT': 'media_routing_table',
+        'AUTOSCALE_EVENTS_LOG_DOC': 'AS_EVENTS_LOG',
+        'DO_IMAGE_NAME': 'media-server-a5e8fb4',
+    }
+
+    return get()
+
+
+def get():
+    """Return configuration object."""
+    return _config

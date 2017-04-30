@@ -1,0 +1,5 @@
+#/bin/sh
+
+export  media_server_ip = $(getent hosts media-server | awk '{print $1}')
+
+../app/scripts/add_media_server.py DEU_frankfurt1_DO $media_server_ip media-server 50000 50001 up

@@ -1,0 +1,7 @@
+apt-get purge openjdk-\*
+cd ~/Downloads/
+wget http://download.oracle.com/otn-pub/java/jdk/8u91-b14/jdk-8u91-linux-x64.tar.gz
+mkdir -p /usr/local/java
+mv ./jdk-8u91-linux-x64.tar.gz sudo  /usr/local/java/
+cd /usr/local/java
+tar xvzf jdk-8u91-linux-x64.tar.gz
