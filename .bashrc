@@ -1,9 +1,9 @@
 # PATH
 export PATH=$PATH:/home/lior/android-sdks/platform-tools:/home/lior/bin/android-ndk-r10d/
-
+export PATH=$PATH:/opt/google-cloud-sdk/platform/google_appengine/
 # Environment Vars
-export VISUAL=vim
-export EDITOR="$VISUAL"
+#export VISUAL=vim
+#export EDITOR="$VISUAL"
 
 
 # shell helpers
@@ -56,8 +56,8 @@ settermtitle () {
 }
 
 #kik VPN
-alias vpnon="sudo pritunl-client start  93d29217254c4fd6be47aec78ae9b14f"
-alias vpnoff="sudo pritunl-client stop 93d29217254c4fd6be47aec78ae9b14f"
+alias vpnon="pritunl-client list | awk 'FNR==2 {print $1}' | xargs pritunl-client start"
+alias vpnoff="pritunl-client list | awk 'FNR==2 {print $1}' | xargs pritunl-client stop"
 
 
 # ssh
@@ -76,16 +76,22 @@ function sshaws() {
         user=ec2-user
     fi
    
-    ssh -i ~/.ssh/ansible -o forwardagent=yes $user"@$ip"
+    ssh -i ~/.ssh/kik.pem -o forwardagent=yes $user"@$ip"
 }
 
 
 
 function awscreds(){
-    lp-aws-saml.py
-    export AWS_ACCESS_KEY_ID=$(sed -nr "/^\[lior@kik.com\]/ { :l /^aws_access_key_id[ ]*=/ { s/aws_access_key_id = [ ]*//; p; q;}; n; b l;}" ~/.aws/credentials)
-    export AWS_SESSION_TOKEN=$(sed -nr "/^\[lior@kik.com\]/ { :l /^aws_session_token[ ]*=/ { s/aws_session_token = [ ]*//; p; q;}; n; b l;}" ~/.aws/credentials)
-    export AWS_SECRET_ACCESS_KEY=$(sed -nr "/^\[lior@kik.com\]/ { :l /^aws_secret_access_key[ ]*=/ { s/aws_secret_access_key = [ ]*//; p; q;}; n; b l;}" ~/.aws/credentials)
+    samlid=70162
+    case "$1" in
+        kin)
+            samlid=92792
+            ;;
+    esac
+    lp-aws-saml.py --saml-config-id $samlid
+    export AWS_ACCESS_KEY_ID=$(sed -nr "/^\[lior.aviram@kik.com\]/ { :l /^aws_access_key_id[ ]*=/ { s/aws_access_key_id = [ ]*//; p; q;}; n; b l;}" ~/.aws/credentials)
+    export AWS_SESSION_TOKEN=$(sed -nr "/^\[lior.aviram@kik.com\]/ { :l /^aws_session_token[ ]*=/ { s/aws_session_token = [ ]*//; p; q;}; n; b l;}" ~/.aws/credentials)
+    export AWS_SECRET_ACCESS_KEY=$(sed -nr "/^\[lior.aviram@kik.com\]/ { :l /^aws_secret_access_key[ ]*=/ { s/aws_secret_access_key = [ ]*//; p; q;}; n; b l;}" ~/.aws/credentials)
     export AWS_SECURITY_TOKEN=$AWS_SESSION_TOKEN
 }
 
@@ -119,9 +125,8 @@ function switchawsRole(){
   echo "Good old Rounds"
 }
 
-alias booyahawssshutle="sshuttle -r ssh-gw.rounds.video 172.16.0.0/16 --dns"
-alias gcpsshutle="sshuttle -r ubuntu@146.148.8.69 10.240.29.64" # Old Rounds Account
-alias rkiksshuttle="sshuttle -r ssh-bastion-rkik.rounds.video 10.32.0.0/16 172.16.0.0/12 --dns"
+alias assumerole=". /usr/bin/aws-assume-role.sh"
+alias rkiksshuttle="sshuttle -r ssh-gw.media.kik.com 10.32.0.0/16 172.16.0.0/12 --dns"
 
 function sshroot() {
     usr=${2-root}
@@ -139,14 +144,11 @@ alias usegolemkey="export SSH_KEY_FILE=~/.ssh/golem"
 
 alias ascp="scp -i ~/.ssh/ansible"
 
-#docker
-alias ricapiDockerConsole="sudo docker run -it --rm -v /home/lior/code/server:/opt/application/rounds rounds/ricapi bash"
-
 
 # git
 alias gts="git status"
-function rclone {
- git clone git@github.com:rounds/$1.git
+function klone {
+ git clone git@github.com:kikinteractive/$1.git
 }
 
 
@@ -187,9 +189,9 @@ function runAnsible(){
 
 # Prompt customizations
 # Bash completion
-if [ -f /etc/bash_completion ]; then
-    . /etc/bash_completion
-fi
+#if [ -f /etc/bash_completion ]; then
+#    . /etc/bash_completion
+#fi
 export PS1='\[\033[01;32m\]\u@\h\[\033[01;34m\] \w\[\033[01;33m\]$(__git_ps1)\[\033[01;34m\] \$\[\033[00m\] '
 export GIT_PS1_SHOWDIRTYSTATE=1
 
@@ -203,4 +205,15 @@ alias simpleSpanishADB='adb reverse tcp:8081 tcp:8081'
 
 alias fixdisplay="xrandr --output VGA-0 --auto"
 
+
+
+alias xiphias-deploy-production="mvn clean install xiphias:deploy -P xiphias-production"
+alias xiphias-rollback-production="mvn clean install xiphias:rollback -P xiphias-production"
+
 eval $(keychain --quiet --eval --agents ssh --inherit any ansible lior-private-github)
+
+export WORKON_HOME=~/virtualenvwrapper
+source /usr/local/bin/virtualenvwrapper.sh
+
+
+alias vmResetCP="killall VBoxClient && VBoxClient-all"
